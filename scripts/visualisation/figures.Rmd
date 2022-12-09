@@ -1,0 +1,2234 @@
+---
+title: "Figures for 'Reliable and generalizable brain-based predictions of cognitive functioning across common psychiatric illness'"
+author: "Sidhant Chopra"
+date: "07/12/2022"
+output: html_document
+---
+
+```{r load packages}
+library(here)
+library(glue)
+library(ciftiTools)
+library(magick)
+library(rgl)
+library(data.table)
+library(ggplot2)
+library(introdataviz)
+library(ggdist)
+library(scales)
+library(pBrackets)
+library(corrplot)
+library(superheat)
+library(pals)
+library(extrafont)
+library(svglite)
+library(cocor)
+library(grid)
+library(patchwork)
+library(cowplot)
+library(pbapply)
+library(parallel)
+library(ggalt)
+library(tidyverse)
+library(ggbreak)
+source(here("./scripts/visualisation/functions/plot_on_brain_pysurf.R"))
+source(here("./scripts/visualisation/functions/smooth_matrix.R"))
+source(here("./scripts/visualisation/functions/make_chord.R"))
+source(here("./scripts/visualisation/functions/make_custom_legend.R"))
+source(here("./scripts/visualisation/functions/makeNetworkMatrix2.R"))
+```
+
+Main text figures. 
+
+```{r Fig1A atlas legend , eval=FALSE}
+ciftiTools.setOption("wb_path", "/Applications/workbench/")
+schaefer400_n17 <- read_xifti(here('./data/atlas/Schaefer2018_400Parcels_17Networks_order.dlabel.nii'))
+
+
+#no coloring in parcels (used in Fig 2B)
+view_xifti_surface(schaefer400_n17, borders="Black", legend_embed = F, colors = NA)
+
+#standard Schaefer coloring
+view_xifti_surface(schaefer400_n17, borders="Black", legend_embed = F)
+
+rgl.postscript(here('./output/figures/vector_files/1a_schaefer_surface_ciftitools.pdf'), 
+               fmt = "pdf", drawText = F)
+rgl.clear()
+
+#subcortex made in pyvista (see ./scripts/visualisation/functions/get_subcortex_mesh_aseg_legend.py)
+subcort <- image_read(here('./output/figures/vector_files/aseg_subcortex_pyvista_uncroped.png'))
+subcort <- image_transparent(subcort , 'white')
+subcort <- image_crop(subcort, "810x700+200")
+subcort <- image_trim(subcort)
+image_write(subcort, here('./output/figures/vector_files/1a_aseg_subcortex_pyvista.pdf'), format="pdf")
+
+#compile
+cortex_brain    <- image_read(here('./output/figures/vector_files/1a_schaefer_surface_ciftitools.pdf'))
+cortex_leg      <- image_read(here('./output/figures/vector_files/schaefer_legend.png'))
+cortex          <- image_append(c(cortex_brain, 
+                                  image_scale(cortex_leg,600)), stack = T)
+subcortex_brain <- image_read(here('./output/figures/vector_files/1a_aseg_subcortex_pyvista.pdf'))
+subcortex_leg   <- image_read(here('./output/figures/vector_files/aseg_legend.png'))
+subcortex       <- image_append(c(image_scale(subcortex_brain,500), 
+                                  image_scale(subcortex_leg,300)), stack = T)
+Fig1A           <- image_append(c(cortex, subcortex))
+
+
+Fig1A
+```
+
+```{r Fig1B accuracy box plot data prep}
+#Load data
+hcpep_mm        <- read.table(here('./output/accuracy/MM/hcpep_pearsonr_cogPC.txt'))[-1]
+hcpep_mm_nulls  <- t(fread(here('./output/accuracy/MM/nulls/hcpep_pearsonr_cogPC_GSR_nulls.txt')))[-1,]
+
+hcpep_krr       <- read.table(here('./output/accuracy/KRR/hcpep_pearsonr_cogPC.txt'))[-1]
+hcpep_krr_nulls <- t(fread(here('./output/accuracy/KRR/nulls/hcpep_pearsonr_cogPC_GSR_nulls.txt')))[-1,]
+
+tcp_mm          <- read.table(here('./output/accuracy/MM/tcp_pearsonr_cogPC.txt'))[-1]
+tcp_mm_nulls    <- t(fread(here('./output/accuracy/MM/nulls/tcp_pearsonr_cogPC_GSR_nulls.txt')))[-1,]
+
+tcp_krr         <- read.table(here('./output/accuracy/KRR/tcp_pearsonr_cogPC.txt'))[-1]
+tcp_krr_nulls   <- t(fread(here('./output/accuracy/KRR/nulls/tcp_pearsonr_cogPC_GSR_nulls.txt')))[-1,]
+
+cnp_mm          <- read.table(here('./output/accuracy/MM/cnp_pearsonr_cogPC.txt'))[-1]
+cnp_mm_nulls    <- t(fread(here('./output/accuracy/MM/nulls/cnp_pearsonr_cogPC_GSR_nulls.txt')))[-1,]
+
+cnp_krr         <- read.table(here('./output/accuracy/KRR/cnp_pearsonr_cogPC.txt'))[-1]
+cnp_krr_nulls   <- t(fread(here('./output/accuracy/KRR/nulls/cnp_pearsonr_cogPC_GSR_nulls.txt')))[-1,]
+
+
+hcpep_mm  <- as.data.frame(cbind(t(hcpep_mm), rep("hcpep",100),rep("MM",100)))
+hcpep_krr <- as.data.frame(cbind(t(hcpep_krr), rep("hcpep",100),rep("KRR",100)))
+tcp_mm    <- as.data.frame(cbind(t(tcp_mm), rep("tcp",100),rep("MM",100)))
+tcp_krr   <- as.data.frame(cbind(t(tcp_krr), rep("tcp",100),rep("KRR",100)))
+cnp_mm    <- as.data.frame(cbind(t(cnp_mm), rep("cnp",100),rep("MM",100)))
+cnp_krr   <- as.data.frame(cbind(t(cnp_krr), rep("cnp",100),rep("KRR",100)))
+
+colnames(hcpep_mm)  <- colnames(hcpep_krr) <- colnames(tcp_mm) <- 
+  colnames(tcp_krr) <- colnames(cnp_mm) <- colnames(cnp_krr) <- c("Accuracy","Dataset", "Model")
+
+#put all data frames into list
+df_list       <- list(hcpep_mm, hcpep_krr, tcp_mm, tcp_krr, cnp_mm, cnp_krr)
+#merge all data frames in list
+data          <- Reduce(function(x, y) merge(x, y, all=TRUE), df_list)
+data$Dataset  <- as.factor(data$Dataset)
+data$Dataset  <- factor(data$Dataset, levels = c("hcpep", "tcp", "cnp"))
+data$Model    <- as.factor(data$Model)
+data$Accuracy <- as.numeric(data$Accuracy)
+```
+
+```{r Fig1B accuracy box plot sig tests}
+is.sig     <- function(obs_vec=NULL, null_vec=NULL) {
+  obs_vec  <- as.numeric(unlist(obs_vec))
+  null_vec <- as.numeric(unlist(null_vec))
+  return(1-sum(mean(obs_vec)>null_vec)/length(null_vec))
+}
+
+obs_list   <- list(hcpep_mm, hcpep_krr, tcp_mm, tcp_krr, cnp_mm, cnp_krr)
+null_list  <- list(hcpep_mm_nulls, hcpep_krr_nulls, tcp_mm_nulls, tcp_krr_nulls, cnp_mm_nulls, cnp_krr_nulls)
+
+for(p in 1:length(obs_list)) {
+  message(is.sig(obs_list[[p]]$Accuracy, null_vec = null_list[[p]]))
+}
+
+#difference b/w krr and mm uding paired t-test
+#https://machinelearningmastery.com/statistical-significance-tests-for-comparing-machine-learning-algorithms/
+t.test(as.numeric(unlist(hcpep_mm$Accuracy)),unlist(as.numeric(hcpep_krr$Accuracy,paired=TRUE)))
+t.test(as.numeric(unlist(tcp_mm$Accuracy)),unlist(as.numeric(tcp_krr$Accuracy,paired=TRUE)))
+t.test(as.numeric(unlist(cnp_mm$Accuracy)),unlist(as.numeric(cnp_krr$Accuracy,paired=TRUE)))
+
+```
+
+```{r Fig1B accuracy box plot}
+lab.size = 22
+title.size = 24
+line.thickness = 0.6
+
+bracketsGrob <- function(...){
+  l          <- list(...)
+  e          <- new.env()
+  e$l        <- l
+  grid:::recordGrob(  {
+    do.call(grid.brackets, l)
+  }, e)
+}
+
+# note that units here are "npc", the only unit (besides physical units) that makes sensewhen annotating the plot panel in ggplot2 (since we have no access to native units)
+b1 <- bracketsGrob(0.24, 0.1, 0.04, 0.1, h=0.04, lwd=2, col="black")
+b2 <- bracketsGrob(.6, 0.1, 0.4, 0.1, h=0.04,  lwd=2, col="black")
+b3 <- bracketsGrob(.955, 0.1, 0.755, 0.1, h=0.04,  lwd=2, col="black")
+
+# *** <.00001, ** <.001 * <.05
+Fig1B  <- ggplot(data, aes(x = Dataset, y = Accuracy, fill = Model)) +	
+  # geom_hline(yintercept=c(0), linetype="longdash", colour="lightgray") +
+  introdataviz::geom_split_violin(alpha = .3, trim = F, width =0.8, colour =NA) + 
+  geom_boxplot(width = .2, alpha = 0.4, fatten = T, show.legend = FALSE,outlier.shape = NA, coef=1) +
+  stat_summary(fun="mean", geom="point", size=2,
+               position=position_dodge(width=0.2), color="black") +
+  scale_x_discrete(name = "Dataset", labels = c("HCP-EP", "TCP", "CNP")) + 
+  ylab("Accuracy") +
+  scale_fill_brewer(palette = "Set1", name = "Model") + 
+  annotate("text", x = 1.1, y = 0.78,  size = 6,
+           alpha     = 1, 
+           colour    = "#377EB8", label = "***") + 
+  annotate("text", x = 2.1, y = 0.78,  size = 6,
+           alpha     = 1, 
+           colour    = "#377EB8", label = "*") + 
+  annotate("text", x = 3.1, y = 0.78,  size = 6,
+           alpha     = 1, 
+           colour    = "#377EB8", label = "***") + 
+  annotate("text", x = 1.05-0.2, y = 0.78,  size = 6,
+           alpha     = 1, 
+           colour    = "#EF828B", label = "**") + 
+  annotate("text", x = 2.05-0.2, y = 0.78,  size = 4,
+           alpha     =1, 
+           colour    = "#EF828B", label = "ns") + 
+  annotate("text", x = 3.05-0.2, y = 0.78,  size = 6,
+           alpha     = 1, 
+           colour    = "#EF828B", label = "**") +  
+  annotate("text", x = 1, y = -0.42,  size = 6,
+           alpha     = 1, 
+           colour    = "Black", label = "^") +  
+  annotate("text", x = 2, y = -0.42,  size = 6,
+           alpha     = 1, 
+           colour    = "Black", label = "^") +  
+  annotate("text", x = 3, y = -0.42,  size = 6,
+           alpha     = 1, 
+           colour    = "Black", label = "^") +
+  annotation_custom(b1) + 
+  annotation_custom(b2) +
+  annotation_custom(b3) +
+  scale_y_continuous(breaks=seq(-0.45,0.85,0.2), labels = number_format(accuracy = 0.01)) + 
+  coord_cartesian(ylim = c(-0.45,0.85), expand=c(0,0)) +
+  theme(axis.text.y      = element_text(size=lab.size, colour = "black"),
+        axis.title.y     = element_text(size=title.size, colour = "black"),
+        axis.text.x      = element_text(size=lab.size, colour = "black",hjust = 0.4),
+        axis.title.x     = element_text(size=title.size, colour = "black"),
+        axis.line        = element_line(colour = "black", size = line.thickness),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        legend.text      = element_text(size=lab.size-2, colour = "black"),
+        legend.title     = element_text(size=title.size-2, colour = "black")) + 
+  guides(fill = guide_legend(override.aes = list(shape = NA))) 
+
+Fig1B
+
+ggsave(here('./output/figures/vector_files/1b_boxplot.svg'), 
+       plot = Fig1B, units = "in", width = 9, height = 6)
+```
+
+```{r Fig1C MM genralisibility corrplot }
+genmat <- as.matrix(abs(read.table(here('./output/generalizability/mm_generalizability_matrix.txt'))))
+
+#add insample mean accuracy as diagonal
+diag(genmat) <- round(c(mean(as.numeric(unlist(data$Accuracy[data$Dataset=="hcpep" & data$Model=="MM"]))),
+                        mean(as.numeric(unlist(data$Accuracy[data$Dataset=="tcp" & data$Model=="MM"]))),
+                        mean(as.numeric(unlist(data$Accuracy[data$Dataset=="cnp" & data$Model=="MM"])))),2)
+
+row.names(genmat) <- colnames(genmat) <- c("HCPEP", "TCP", "CNP")
+
+#load nulls
+mm_gen_nulls <- read.table(here('./output/generalizability/nulls/mm_test_train_nulls.csv'))
+
+#train test
+obs_r_mm <- c(0.334, 0.394,0.210,0.351,0.332, 0.361)
+
+for (p in 1:length(obs_r_mm)) {
+  p_val <- 1 - sum(obs_r_mm[p] >= mm_gen_nulls[,p]) /length(mm_gen_nulls[,p])
+  print(p_val)
+}
+
+# The below doesn't always save the .eps when run in a code chunk,
+# but will work fine if pasted into console
+setEPS()
+postscript(here('./output/figures/vector_files/1c_generalizability.eps'), height = 8, width = 8)
+
+par(xpd=TRUE)
+corrplot(genmat, method = "circle",  
+         col.lim        = c(0,0.6),
+         col            = COL1('OrRd', 100), 
+         addCoef.col    = 'black',
+         tl.col         = "black", tl.cex=2.5, 
+         tl.srt         = 45, 
+         is.corr        = F, 
+         cl.length      = 4, 
+         cl.ratio       = 0.4,number.cex = 2,
+         addgrid.col    = "black", cl.cex = 2, na.label = " ")
+dev.off()
+
+
+```
+
+```{r Fig2A-C edge/region/network spin nulls for feature weight correlations, eval=FALSE}
+hcp_ep       <- fread(here('./output/accuracy/MM/hcpep_haufe_cogPC.txt'), sep = " ")
+tcp          <- fread(here('./output/accuracy/MM/tcp_haufe_cogPC.txt'), sep = " ")
+cnp          <- fread(here('./output/accuracy/MM/cnp_haufe_cogPC.txt'), sep = " ")
+cov          <- cbind(hcp_ep, tcp, cnp*-1)
+colname      <- c("HCP-EP", "TCP", "CNP")
+atlas_labs   <- read.csv(here('./data/atlas/atlas_labels.csv'))
+
+
+PNF <- matrix(nrow = 87571, ncol = ncol(cov))
+PNF_mats <- list()
+x=1
+for (s in 1:ncol(cov)) {
+  mat <- matrix(nrow = 419, ncol = 419)
+  mat[upper.tri(mat)] <- as.matrix(cov[, ..s])
+  mat <- as.matrix(Matrix::forceSymmetric(mat, uplo = "U"))
+  diag(mat) <- 0
+  #mat <- mat[atlas_labs$reorder, atlas_labs$reorder]  #not reordered to match spin test indexing
+  PNF[,x]  <- mat[upper.tri(mat)]
+  PNF_mats[[s]] <- mat
+  x=x+1
+}
+
+#Spin nulls
+#remove subcortex
+mat1=PNF_mats[[1]][1:400,1:400]
+mat2=PNF_mats[[2]][1:400,1:400]
+mat3=PNF_mats[[3]][1:400,1:400]
+spin_index <- as.data.frame(fread(file = here('./data/atlas/schaefer400_17_vasa_10000spins.csv'))) + 1 # (bring into r indexing)
+
+#fast cor
+cor2 <- \(x) { 1/(NROW(x)-1) * crossprod(scale(x, TRUE, TRUE)) }
+
+
+compute_PNF_by_network <- \(PNF=NULL, 
+                            labels=atlas_labs$Network,
+                            membership.rows = atlas_labs$Network,
+                            membership.cols = atlas_labs$Network) {
+  matrixToDataFrame <- \(X) {
+    # convert a matrix to a data data frame with x-y coordinates
+    if(!is.matrix(X)) {
+      stop("X must be a matrix")
+    }
+    
+    # converts image matrix into a data frame (one row per observation)
+    X.vec <- as.vector(X) # convert the matrix to a vector
+    X.mat <- cbind(value = X.vec,
+                   # convert vector to matrix with columns
+                   # for the x and y coordinates
+                   x = rep(1:ncol(X), each = nrow(X)),
+                   y = rep(1:nrow(X), times = ncol(X)))
+    X.df <- as.data.frame(X.mat)
+    
+    return(X.df)
+  }
+  mat <- matrix(nrow = 400, ncol = 400) #no subcortex for spin test
+  mat[upper.tri(mat)] <- as.matrix(PNF)
+  mat                 <- as.matrix(Matrix::forceSymmetric(mat, uplo = "U"))
+  diag(mat)           <- 0
+  mat                 <- mat[atlas_labs$reorder[-401:-419], atlas_labs$reorder[-401:-419]]
+  X                   <- mat
+  X.df                <- matrixToDataFrame(mat)
+  # get an x-y matrix for row clusters
+  rclust.mat          <- matrix(rep(membership.rows,
+                                    times = ncol(X)),
+                                byrow = F, ncol = ncol(X))
+  rclust.df           <- matrixToDataFrame(rclust.mat)
+  
+  rclust.df$x         <- as.numeric(as.character(rclust.df$x))
+  
+  rclust.df$y         <- as.numeric(as.character(rclust.df$y))
+  names(rclust.df)    <- c("rclust", "x", "y")
+  # get an x-y matrix for col clusters
+  cclust.mat          <- matrix(rep(membership.cols,
+                                    times = nrow(X)),
+                                byrow = T, nrow = nrow(X))
+  cclust.df           <- matrixToDataFrame(cclust.mat)
+  cclust.df$x         <- as.numeric(as.character(cclust.df$x))
+  cclust.df$y         <- as.numeric(as.character(cclust.df$y))
+  names(cclust.df)    <- c("cclust", "x", "y")
+  
+  X.df <- dplyr::inner_join(X.df, rclust.df, by = c("x", "y"))
+  X.df <- dplyr::inner_join(X.df, cclust.df, by = c("x", "y"))
+  
+  # smooth X within clusters
+  X.smooth.df <- X.df
+  # add membership columns and rows vector to X.smooth.df
+  X.smooth.df$rclust <- rclust.df$rclust
+  X.smooth.df$cclust <- cclust.df$cclust
+  
+  # average within cluster boxes:
+  X.smooth.df.pos <-  X.smooth.df[X.smooth.df$value>0,]
+  X.smooth.df.neg <-  X.smooth.df[X.smooth.df$value<0,]
+  
+  X.smooth.df.pos <- X.smooth.df.pos |> dplyr::group_by(cclust, rclust) |>
+    dplyr::summarize(value = mean(value, na.rm = T))
+  
+  X.smooth.df.neg <- X.smooth.df.neg |> dplyr::group_by(cclust, rclust) |>
+    dplyr::summarize(value = mean(value, na.rm = T))
+  
+  X.smooth.df.pos <- dplyr::ungroup(X.smooth.df.pos)
+  X.smooth.df.neg <- dplyr::ungroup(X.smooth.df.neg)
+  
+  X.smooth.df.pos.square <-  reshape2::dcast(X.smooth.df.pos, cclust~rclust)
+  X.smooth.df.neg.square <-  reshape2::dcast(X.smooth.df.neg, cclust~rclust)
+  
+  return(list(as.matrix(X.smooth.df.pos.square[,-1]), as.matrix(X.smooth.df.neg.square[,-1])))
+  
+}
+
+apply_mat_spin_nulls <- \(spin_index=NULL, mat1=NULL, mat2=NULL) {
+  #computes null correlation using spin test reordering for edge level, roi level (pos/neg) and 
+  #network level (pos/neg) feature matricies
+  mat1_spun <- mat1[c(spin_index),c(spin_index)]
+  mat1_spun_vec <- mat1_spun[upper.tri(mat1_spun)]
+  edgecor <- cor(mat1_spun_vec,mat2[upper.tri(mat2)])
+  
+  #roi
+  roi_pos_spun <- roi_neg_spun <- mat1_spun
+  roi_pos_spun[roi_pos_spun<0] <- 0
+  roi_neg_spun[roi_neg_spun>0] <- 0
+  roi_pos_spun <- rowMeans(roi_pos_spun)
+  roi_neg_spun <- rowMeans(roi_neg_spun)
+  roi_pos_obs <- roi_neg_obs <- mat2
+  roi_pos_obs[roi_pos_obs<0] <- 0
+  roi_neg_obs[roi_neg_obs>0] <- 0
+  roi_pos_obs <- rowMeans(roi_pos_obs)
+  roi_neg_obs <- rowMeans(roi_neg_obs)
+  roi_cor_pos <- cor(roi_pos_spun, roi_pos_obs)
+  roi_cor_neg <- cor(roi_neg_spun, roi_neg_obs)
+  #network
+  network_spun <- compute_PNF_by_network(mat1_spun_vec, 
+                                         labels = atlas_labs$Network[-401:-419],
+                                         membership.rows = atlas_labs$Network[-401:-419],
+                                         membership.cols = atlas_labs$Network[-401:-419])
+  network_spun_pos <- c(network_spun[[1]][upper.tri(network_spun[[1]], diag = T)])
+  network_spun_neg  <- c(network_spun[[2]][upper.tri(network_spun[[2]], diag = T)])
+  network_obs  <- compute_PNF_by_network(mat2[upper.tri(mat2)], 
+                                         labels = atlas_labs$Network[-401:-419],
+                                         membership.rows = atlas_labs$Network[-401:-419],
+                                         membership.cols = atlas_labs$Network[-401:-419])
+  network_cor_pos <- cor(network_spun_pos, c(network_obs[[1]][upper.tri(network_obs[[1]], diag = T)])) 
+  network_cor_neg <- cor(network_spun_neg, c(network_obs[[2]][upper.tri(network_obs[[2]], diag = T)])) 
+  return(c(edgecor, roi_cor_pos, roi_cor_neg, network_cor_pos, network_cor_neg))
+}
+
+#can tale ~20mins
+cl <- makeCluster(10)
+clusterExport(cl, c("spin_index", "mat1","mat2","mat3","compute_PNF_by_network", "atlas_labs"))
+
+nullp_m1m2 <- pbapply(spin_index[,1:5000], 2,apply_mat_spin_nulls, cl = cl, mat1=mat1, mat2=mat2)
+
+nullp_m1m3 <- pbapply(spin_index[,1:5000], 2,apply_mat_spin_nulls, cl = cl, mat1=mat1, mat2=mat3)
+
+nullp_m2m3 <- pbapply(spin_index[,1:5000], 2,apply_mat_spin_nulls, cl = cl, mat1=mat2, mat2=mat3)
+row.names(nullp_m1m2) <- row.names(nullp_m1m3) <- row.names(nullp_m2m3) <- c("edge","roi_pos","roi_neg","network_pos", "network_neg")
+
+stopCluster(cl)
+saveRDS(list(nullp_m1m2,nullp_m1m3,nullp_m2m3), file = here('./output/accuracy/MM/nulls/spin_test_null_correlations.RDS'))
+
+```
+
+```{r Fig2A between dataset feature weight corr - edge-level}
+hcp_ep       <- fread(here('./output/accuracy/MM/hcpep_haufe_cogPC.txt'), sep = " ")
+tcp          <- fread(here('./output/accuracy/MM/tcp_haufe_cogPC.txt'), sep = " ")
+cnp          <- fread(here('./output/accuracy/MM/cnp_haufe_cogPC.txt'), sep = " ")
+
+cov          <- cbind(hcp_ep, tcp, cnp*-1)
+colname      <- c("HCP-EP", "TCP", "CNP")
+atlas_labs   <- read.csv(here('./data/atlas/atlas_labels.csv'))
+
+PNF <- matrix(nrow = 87571, ncol = ncol(cov))
+PNF_mats <- list()
+x=1
+for (s in 1:ncol(cov)) {
+  mat <- matrix(nrow = 419, ncol = 419)
+  mat[upper.tri(mat)] <- as.matrix(cov[, ..s])
+  mat <- as.matrix(Matrix::forceSymmetric(mat, uplo = "U"))
+  diag(mat) <- 0
+  mat <- mat[atlas_labs$reorder, atlas_labs$reorder]
+  PNF[,x]  <- mat[upper.tri(mat)]
+  PNF_mats[[s]] <- mat
+  x=x+1
+}
+
+PNF <- as.data.frame(PNF)
+colnames(PNF) <- c("HCP-EP", "TCP", "CNP")
+
+pnfcor <- cor(PNF, method = "pearson")
+colnames(pnfcor) <- row.names(pnfcor) <- c("HCP-EP", "TCP", "CNP")
+
+#compute spin and standard p-val
+temp <- readRDS(here('./output/accuracy/MM/nulls/spin_test_null_correlations.RDS'))
+spin_r <- t(rbind(t(temp[[1]][1,]),t(temp[[2]][1,]),t(temp[[3]][1,])))
+obs_r <- cor(PNF)[upper.tri(cor(PNF))]
+p_spin <- c()
+for (p in 1:length(obs_r)) {
+  p_spin[p] <- 1-sum(abs(obs_r[p])>abs(spin_r[,p]))/length(spin_r[,p])
+}
+
+p_std <- c()
+p_std[1] <- cor.test(PNF[,1], PNF[,2])$p.value
+p_std[2] <- cor.test(PNF[,1], PNF[,3])$p.value
+p_std[3] <- cor.test(PNF[,2], PNF[,3])$p.value
+
+
+lab.size = 15
+title.size = 18
+line.thickness = 1
+
+theme_custom <- theme(legend.position  = "none", 
+                      axis.text.y      = element_text(size=lab.size,colour = "black"),
+                      axis.title.y     = element_text(size=title.size,colour = "black"),
+                      axis.text.x      = element_text(size=lab.size,colour = "black"),
+                      axis.title.x     = element_text(size=title.size,colour = "black"),
+                      axis.line        = element_line(colour = "black", size = line.thickness),
+                      panel.grid.major = element_blank(),
+                      panel.grid.minor = element_blank(),
+                      panel.background = element_blank())
+
+annotate_npc <- function(label, x, y, size, ...) {
+  ggplot2::annotation_custom(grid::textGrob(
+    x = unit(x, "npc"), y = unit(y, "npc"), label = label, gp = gpar(fontsize = size),...,))
+}
+
+p1 <- ggplot(PNF, aes(`HCP-EP`, `TCP`)) +
+  geom_hex(bins=50) +
+  geom_smooth(method='lm',colour = "black") +
+  scale_fill_gradientn(colours = brewer.reds(100))  +
+  theme_custom + 
+  scale_y_continuous(labels = number_format(accuracy = 0.01)) + 
+  scale_x_continuous(labels = number_format(accuracy = 0.01))  + 
+  annotate_npc(paste0("R = ", round(obs_r[1],2),"; p < .001" ),
+               x =  0.7, y = 0.05, size=15)
+
+p2 <- ggplot(PNF, aes(`HCP-EP`, `CNP`)) +
+  geom_hex(bins=50) +
+  geom_smooth(method='lm',colour = "black") +
+  scale_fill_gradientn(colours = brewer.reds(100))  +
+  theme_custom + 
+  scale_y_continuous(labels = number_format(accuracy = 0.01)) + 
+  scale_x_continuous(labels = number_format(accuracy = 0.01)) +
+  annotate_npc(paste0("R = ", round(obs_r[2],2),"; p < .001" ),
+               x =  0.7, y = 0.05, size=15)
+
+p3 <- ggplot(PNF, aes(`TCP`, `CNP`)) +
+  geom_hex(bins=50) +
+  geom_smooth(method='lm',colour = "black") +
+  scale_fill_gradientn(colours = brewer.reds(100))  +
+  theme_custom + 
+  scale_y_continuous(labels = number_format(accuracy = 0.01)) + 
+  scale_x_continuous(labels = number_format(accuracy = 0.01)) +
+  annotate_npc(paste0("R = ", round(obs_r[3],2),"; p < .001" ),
+               x =  0.7, y = 0.05, size=15)
+
+library(patchwork)
+p <- p1 | p2 | p3
+
+ggsave(here('./output/figures/vector_files/3a_edge_scatter.svg'), plot = p,
+       height=4.1, width=13, units = "in")
+
+
+```
+
+```{r Fig2B between dataset feature weight corr - region-level}
+hcp_ep       <- fread(here('./output/accuracy/MM/hcpep_haufe_cogPC.txt'), sep = " ")
+tcp          <- fread(here('./output/accuracy/MM/tcp_haufe_cogPC.txt'), sep = " ")
+cnp          <- fread(here('./output/accuracy/MM/cnp_haufe_cogPC.txt'), sep = " ")
+
+cov          <- cbind(hcp_ep, tcp, cnp*-1)
+colname      <- c("HCP-EP", "TCP", "CNP")
+atlas_labs   <- read.csv(here('./data/atlas/atlas_labels.csv'))
+
+PNF_mats <- list()
+
+for (s in 1:ncol(cov)) {
+  mat <- matrix(nrow = 419, ncol = 419)
+  mat[upper.tri(mat)] <- as.matrix(cov[, ..s])
+  mat <- as.matrix(Matrix::forceSymmetric(mat, uplo = "U"))
+  diag(mat) <- 0
+  mat <- mat[atlas_labs$reorder, atlas_labs$reorder]
+  PNF_mats[[s]] <- mat
+}
+labels <- atlas_labs$Label
+pnf_roi_pos <- as.data.frame(matrix(nrow = 419, ncol = 3))
+pnf_roi_neg <- as.data.frame(matrix(nrow = 419, ncol = 3))
+for (c in 1:3) {
+  x_pos <- x_neg <- PNF_mats[[c]] 
+  x_pos[x_pos<0] <- 0
+  x_neg[x_neg>0] <- 0
+  pnf_roi_pos[,c] <- rowMeans(x_pos)
+  pnf_roi_neg[,c] <- rowMeans(x_neg)
+}
+
+#compare correlatio coef of pos and neg loadings
+compare_cor <- \(a,b) { cocor.dep.groups.nonoverlap(r.jk=cor(pnf_roi_pos[,a],pnf_roi_pos[,b]), 
+                                                    r.hm=cor(pnf_roi_neg[,a],pnf_roi_neg[,b]), 
+                                                    r.jh=cor(pnf_roi_pos[,a],pnf_roi_neg[,a]), 
+                                                    r.jm=cor(pnf_roi_pos[,a],pnf_roi_neg[,b]),
+                                                    r.kh=cor(pnf_roi_pos[,b],pnf_roi_neg[,a]), 
+                                                    r.km=cor(pnf_roi_pos[,b], pnf_roi_neg[,b]), 
+                                                    n           = 419, 
+                                                    alternative = "two.sided", 
+                                                    alpha       = 0.05, 
+                                                    conf.level  = 0.95, 
+                                                    null.value  = 0, 
+                                                    test = 'raghunathan1996')}
+compare_cor(a=1,b=2)
+compare_cor(a=1,b=3)
+compare_cor(a=2,b=3)
+
+
+#compute spin and standard p-val
+temp       <- readRDS(here('./output/accuracy/MM/nulls/spin_test_null_correlations.RDS'))
+spin_r_pos <- t(rbind(t(temp[[1]][2,]),t(temp[[2]][2,]),t(temp[[3]][2,])))
+spin_r_neg <- t(rbind(t(temp[[1]][3,]),t(temp[[2]][3,]),t(temp[[3]][3,])))
+spin_r     <- data.frame(spin_r_pos,spin_r_neg)
+obs_r_pos  <- cor(pnf_roi_pos)[upper.tri(cor(pnf_roi_pos))]
+obs_r_neg  <- cor(pnf_roi_neg)[upper.tri(cor(pnf_roi_neg))]
+obs_r      <- c(obs_r_pos,obs_r_neg)
+p_spin     <- c()
+for (p in 1:length(obs_r)) {
+  p_spin[p] <- 1-sum(abs(obs_r[p])>abs(spin_r[,p]))/length(spin_r[,p])
+}
+
+
+lab.size = 15
+title.size = 18
+line.thickness = 1
+
+
+theme_custom <- theme(legend.position = "none", 
+                      axis.text.y=element_text(size=lab.size, colour = "black"),
+                      axis.title.y =element_text(size=title.size,colour = "black"),
+                      axis.text.x=element_text(size=lab.size,colour = "black"),
+                      axis.title.x =element_text(size=title.size,colour = "black"),
+                      axis.line = element_line(colour = "black", size = line.thickness),
+                      panel.grid.major = element_blank(),
+                      panel.grid.minor = element_blank(),
+                      panel.background = element_blank())
+
+make_scatter<- function(list=NULL, v1=NULL, v2=NULL, xlabs=NULL, ylabs=NULL, 
+                        dot.colour = NULL, line.colour="#a70000"){ 
+  
+  scaleFUN <- function(x) sprintf("%.3f", x)
+  options(scipen=999)
+  library(ggdensity)
+  library(ggdist)
+  library(ggplot2)
+  data <- as.data.frame(cbind(list[[v1]],list[[v2]]))
+  return(ggplot(data, aes(x = V1, y = V2)) +
+           geom_point(alpha=0.3, size=6, colour=dot.colour) + 
+           stat_smooth(geom = "line", lineend = "round", color =  line.colour, method="lm", size=1) +  
+           xlab(xlabs) +
+           ylab(ylabs) +
+           theme_custom+ 
+           scale_y_continuous(labels=scaleFUN, n.breaks = 4) + 
+           scale_x_continuous(labels=scaleFUN, n.breaks = 4))
+}
+
+library(grid)
+annotate_npc <- function(label, x, y, size, ...) {
+  ggplot2::annotation_custom(grid::textGrob(
+    x = unit(x, "npc"), y = unit(y, "npc"), label = label, gp = gpar(fontsize = size),...,))
+}
+
+
+sr1 <- make_scatter(pnf_roi_neg, 1,2, xlab="HCPEP", ylab="TCP", dot.colour="#3182BD", line.colour = "black")  + 
+  annotate_npc(expression(paste("R = 0.56; p"["spin"],"< .001")),
+               x =  0.7, y = 0.05, size=15)
+
+sr2 <- make_scatter(pnf_roi_neg, 1,3, xlab="HCPEP", ylab="CNP", dot.colour="#3182BD", line.colour = "black") + 
+  annotate_npc(expression(paste("R = 0.23; p"["spin"],"< .001")),
+               x =  0.7, y = 0.05, size=15)
+
+sr3 <- make_scatter(pnf_roi_neg, 2,3, xlab="TCP", ylab="CNP", dot.colour="#3182BD", line.colour = "black") + 
+  annotate_npc(expression(paste("R = 0.26; p"["spin"],"= .001")),
+               x =  0.7, y = 0.05, size=15)
+
+sr4 <- make_scatter(pnf_roi_pos, 1,2, xlab="HCPEP", ylab="TCP", dot.colour="#FB7B5B", line.colour = "black") + 
+  annotate_npc(expression(paste("R = 0.24; p"["spin"],"= .001")),
+               x =  0.7, y = 0.05, size=15)
+
+sr5 <- make_scatter(pnf_roi_pos, 1,3, xlab="HCPEP", ylab="CNP", dot.colour="#FB7B5B", line.colour = "black") + 
+  annotate_npc(expression(paste("R = 0.04; p"["spin"],"= .952")),
+               x =  0.7, y = 0.05, size=15)
+
+sr6 <- make_scatter(pnf_roi_pos, 2,3, xlab="TCP", ylab="CNP", dot.colour="#FB7B5B", line.colour = "black") + 
+  annotate_npc(expression(paste("R = 0.01; p"["spin"],"= .998")),
+               x =  0.7, y = 0.05, size=15)
+sr  <- (sr4 | sr5 | sr6)/(sr1 | sr2 | sr3)
+
+ggsave(here('./output/figures/vector_files/3b_roi_scatter.svg'),
+       plot = sr, height=8, width=13, units = "in")
+```
+
+```{r Fig2C between dataset feature weight corr - network-level}
+
+compute_PNF_by_network <- \(PNF=NULL, 
+                            labels=atlas_labs$Network,
+                            membership.rows = atlas_labs$Network,
+                            membership.cols = atlas_labs$Network) {
+  matrixToDataFrame <- \(X) {
+    # convert a matrix to a data data frame with x-y coordinates
+    if(!is.matrix(X)) {
+      stop("X must be a matrix")
+    }
+    
+    # converts image matrix into a data frame (one row per observation)
+    X.vec <- as.vector(X) # convert the matrix to a vector
+    X.mat <- cbind(value = X.vec,
+                   # convert vector to matrix with columns
+                   # for the x and y coordinates
+                   x = rep(1:ncol(X), each = nrow(X)),
+                   y = rep(1:nrow(X), times = ncol(X)))
+    X.df <- as.data.frame(X.mat)
+    
+    return(X.df)
+  }
+  mat <- matrix(nrow = 419, ncol = 419)
+  mat[upper.tri(mat)] <- as.matrix(PNF)
+  mat <- as.matrix(Matrix::forceSymmetric(mat, uplo = "U"))
+  diag(mat) <- 0
+  mat <- mat[atlas_labs$reorder, atlas_labs$reorder]
+  X <- mat
+  X.df <- matrixToDataFrame(mat)
+  # get an x-y matrix for row clusters
+  rclust.mat       <- matrix(rep(membership.rows,
+                                 times = ncol(X)),
+                             byrow = F, ncol = ncol(X))
+  rclust.df        <- matrixToDataFrame(rclust.mat)
+  
+  rclust.df$x      <- as.numeric(as.character(rclust.df$x))
+  
+  rclust.df$y      <- as.numeric(as.character(rclust.df$y))
+  names(rclust.df) <- c("rclust", "x", "y")
+  # get an x-y matrix for col clusters
+  cclust.mat       <- matrix(rep(membership.cols,
+                                 times = nrow(X)),
+                             byrow = T, nrow = nrow(X))
+  cclust.df        <- matrixToDataFrame(cclust.mat)
+  cclust.df$x      <- as.numeric(as.character(cclust.df$x))
+  cclust.df$y      <- as.numeric(as.character(cclust.df$y))
+  names(cclust.df) <- c("cclust", "x", "y")
+  
+  X.df <- dplyr::inner_join(X.df, rclust.df, by = c("x", "y"))
+  X.df <- dplyr::inner_join(X.df, cclust.df, by = c("x", "y"))
+  
+  # smooth X within clusters
+  X.smooth.df <- X.df
+  # add membership columns and rows vector to X.smooth.df
+  X.smooth.df$rclust     <- rclust.df$rclust
+  X.smooth.df$cclust     <- cclust.df$cclust
+  
+  # average within cluster boxes:
+  X.smooth.df.pos        <-  X.smooth.df[X.smooth.df$value>0,]
+  X.smooth.df.neg        <-  X.smooth.df[X.smooth.df$value<0,]
+  
+  X.smooth.df.pos        <- X.smooth.df.pos |> dplyr::group_by(cclust, rclust) |>
+    dplyr::summarize(value = mean(value, na.rm = T))
+  
+  X.smooth.df.neg        <- X.smooth.df.neg |> dplyr::group_by(cclust, rclust) |>
+    dplyr::summarize(value = mean(value, na.rm = T))
+  
+  X.smooth.df.pos        <- dplyr::ungroup(X.smooth.df.pos)
+  X.smooth.df.neg        <- dplyr::ungroup(X.smooth.df.neg)
+  
+  X.smooth.df.pos.square <-  reshape2::dcast(X.smooth.df.pos, cclust~rclust)
+  X.smooth.df.neg.square <-  reshape2::dcast(X.smooth.df.neg, cclust~rclust)
+  
+  return(list(as.matrix(X.smooth.df.pos.square[,-1]), as.matrix(X.smooth.df.neg.square[,-1])))
+  
+}
+
+
+#17 network
+pnf_mat_pos <- list()
+pnf_mat_neg <- list()
+
+for (s in 1:3) {
+  PNF <- as.matrix(cov[, ..s]) #enter vectorised PNF into compute_PNF_by_network function (martix and correct ordering computed within function)
+  pnf_net <- compute_PNF_by_network(PNF)
+  pnf_mat_pos[[s]] <- c(pnf_net[[1]][upper.tri(pnf_net[[1]], diag = T)])
+  pnf_mat_neg[[s]] <- c(pnf_net[[2]][upper.tri(pnf_net[[2]], diag = T)])
+}
+
+
+compare_cor <- \(a,b) {
+  cocor.dep.groups.nonoverlap(r.jk=cor(pnf_mat_pos[[a]],pnf_mat_pos[[b]]), 
+                              r.hm=cor(pnf_mat_neg[[a]],pnf_mat_neg[[b]]), 
+                              r.jh=cor(pnf_mat_pos[[a]],pnf_mat_neg[[a]]), 
+                              r.jm=cor(pnf_mat_pos[[a]],pnf_mat_neg[[b]]),
+                              r.kh=cor(pnf_mat_pos[[b]],pnf_mat_neg[[a]]), 
+                              r.km=cor(pnf_mat_pos[[b]],pnf_mat_neg[[b]]), 
+                              n=419, 
+                              alternative="two.sided", 
+                              alpha=0.05, 
+                              conf.level=0.95, 
+                              null.value=0, test = 'raghunathan1996')}
+
+
+compare_cor(a=1,b=2)
+compare_cor(a=1,b=3)
+compare_cor(a=2,b=2)
+
+
+
+#compute spin and standard p-val
+temp <- readRDS(here('./output/accuracy/MM/nulls/spin_test_null_correlations.RDS'))
+spin_r_pos <- t(rbind(t(temp[[1]][4,]),t(temp[[2]][4,]),t(temp[[3]][4,])))
+spin_r_neg <- t(rbind(t(temp[[1]][5,]),t(temp[[2]][5,]),t(temp[[3]][5,])))
+spin_r <- data.frame(spin_r_pos,spin_r_neg)
+pnf_mat_pos.df <- as.data.frame(pnf_mat_pos)
+pnf_mat_neg.df <- as.data.frame(pnf_mat_neg)
+obs_r_pos <- cor(pnf_mat_pos.df)[upper.tri(cor(pnf_mat_pos.df))]
+obs_r_neg <- cor(pnf_mat_neg.df)[upper.tri(cor(pnf_mat_neg.df))]
+obs_r <- c(obs_r_pos,obs_r_neg)
+p_spin <- c()
+
+for (p in 1:length(obs_r)) {
+  p_spin[p] <- 1-sum(abs(obs_r[p])>abs(spin_r[,p]))/length(spin_r[,p])
+}
+
+
+
+
+lab.size = 15
+title.size = 18
+line.thickness = 1
+
+annotate_npc <- function(label, x, y, size, ...) {
+  ggplot2::annotation_custom(grid::textGrob(
+    x = unit(x, "npc"), y = unit(y, "npc"), label = label, gp = gpar(fontsize = size),...,))
+}
+
+
+
+theme_custom <- theme(legend.position = "none", 
+                      axis.text.y      = element_text(size=lab.size, colour = "black"),
+                      axis.title.y     = element_text(size=title.size,colour = "black"),
+                      axis.text.x      = element_text(size=lab.size,colour = "black"),
+                      axis.title.x     = element_text(size=title.size,colour = "black"),
+                      axis.line        = element_line(colour = "black", size = line.thickness),
+                      panel.grid.major = element_blank(),
+                      panel.grid.minor = element_blank(),
+                      panel.background = element_blank())
+
+make_scatter<- function(list=NULL, v1=NULL, v2=NULL, xlabs=NULL, ylabs=NULL, 
+                        dot.colour = NULL, line.colour="#a70000"){ 
+  scaleFUN <- function(x) sprintf("%.3f", x)
+  options(scipen=999)
+  library(ggdensity)
+  library(ggdist)
+  library(ggplot2)
+  data <- as.data.frame(cbind(list[[v1]],list[[v2]]))
+  return(ggplot(data, aes(x = V1, y = V2)) +
+           geom_point(alpha = 0.3, size=6, colour=dot.colour) + 
+           stat_smooth(geom = "line", lineend = "round", color =  line.colour, method="lm", size=1) +  
+           xlab(xlabs) +
+           ylab(ylabs) +
+           theme_custom + 
+           scale_y_continuous(labels=scaleFUN, n.breaks = 4) + 
+           scale_x_continuous(labels=scaleFUN, n.breaks = 4))
+}
+
+s1 <- make_scatter(pnf_mat_neg, 1,2, xlab="HCPEP", ylab="TCP", dot.colour="#3182BD", line.colour = "black") + 
+  annotate_npc(expression(paste("R = 0.58; p"["spin"],"< .001")),
+               x =  0.7, y = 0.05, size=15) 
+
+s2 <- make_scatter(pnf_mat_neg, 1,3, xlab="HCPEP", ylab="CNP", dot.colour="#3182BD", line.colour = "black") + 
+  annotate_npc(expression(paste("R = 0.19; p"["spin"],"= .250")),
+               x =  0.7, y = 0.05, size=15)
+
+s3 <- make_scatter(pnf_mat_neg, 2,3, xlab="TCP", ylab="CNP", dot.colour="#3182BD", line.colour = "black") + 
+  annotate_npc(expression(paste("R = 0.31; p"["spin"],"= .042")),
+               x =  0.7, y = 0.05, size=15)
+
+s4 <- make_scatter(pnf_mat_pos, 1,2, xlab="HCPEP", ylab="TCP", dot.colour="#FB7B5B", line.colour = "black") + 
+  annotate_npc(expression(paste("R = 0.70; p"["spin"],"< .001")),
+               x =  0.7, y = 0.05, size=15)
+
+s5 <- make_scatter(pnf_mat_pos, 1,3, xlab="HCPEP", ylab="CNP", dot.colour="#FB7B5B", line.colour = "black") + 
+  annotate_npc(expression(paste("R = 0.54; p"["spin"],"< .001")),
+               x =  0.7, y = 0.05, size=15)
+
+s6 <- make_scatter(pnf_mat_pos, 2,3, xlab="TCP", ylab="CNP", dot.colour="#FB7B5B", line.colour = "black") + 
+  annotate_npc(expression(paste("R = 0.62; p"["spin"],"< .001")),
+               x =  0.7, y = 0.05, size=15)
+
+sn <- (s4 | s5 | s6)/(s1 | s2 | s3)
+
+ggsave(here('./output/figures/vector_files/3c_network_scatter.svg'), plot = sn,
+       height=8, width=13, units = "in")
+```
+
+```{r Fig3A netowrk level feature weight heat plots for each dataset,  fig.width=2.4, fig.height=3}
+make_mean_FC_mat <- function(mat        = NULL, 
+                             title      = "", 
+                             smooth     = F, 
+                             save.tiff  = F,
+                             save.eps   = F,
+                             save.svg   = F,
+                             filename   = NULL,
+                             colour.pal = rev(brewer.rdylbu(100))) {
+  if(save.tiff==T){
+    tiff(filename, width = 4.75, height = 6, units = 'in', res = 300,type = c("cairo"))
+  }
+  if(save.eps==T){
+    setEPS()
+    postscript(filename, width = 4.75, height = 6)
+  }
+  if(save.svg==T){
+    svg(filename, width = 4.75, height = 6)
+  }
+  atlas_labs <- read.csv(here('./data/atlas/atlas_labels.csv'))
+  
+  superheat(X = mat,
+            membership.rows         = atlas_labs$Network,
+            membership.cols         = atlas_labs$Network,
+            left.label.col          =unique(atlas_labs$colour),
+            bottom.label.col        =unique(atlas_labs$colour),
+            left.label.size         = 0.04,
+            left.label.text.size    = 0,
+            bottom.label.size       = 0.04,
+            bottom.label.text.size  = 0,
+            bottom.label.text.angle = 90,
+            extreme.values.na       = F,
+            grid.hline.size         = 0.8, 
+            grid.vline.size	        = 0.8,
+            #     heat.lim          = c(min(mat), max(mat)), 
+            heat.pal                = colour.pal,
+            #     heat.pal.values   = c(0, 0.15, 0.25, 0.75,1),
+            title                   = title, 
+            title.alignment         = "center", 
+            title.size              = 6,
+            smooth.heat             = smooth,
+            legend.height           = 0.05,
+            legend.width            = .7,
+            legend.text.size        = 7)
+  if(save.tiff==T | save.eps==T | save.svg==T){
+    while (!is.null(dev.list()))  dev.off()
+  }
+}
+
+hcp_ep     <- fread(here('./output/accuracy/MM/hcpep_haufe_cogPC.txt'), sep = " ")
+tcp        <- fread(here('./output/accuracy/MM/tcp_haufe_cogPC.txt'), sep = " ")
+cnp        <- fread(here('./output/accuracy/MM/cnp_haufe_cogPC.txt'), sep = " ")
+cov        <- cbind(hcp_ep, tcp, cnp*-1)
+colname    <- c("HCP-EP", "TCP", "CNP")
+atlas_labs <- read.csv(here('./data/atlas/atlas_labels.csv'))
+
+PNF_mats <- list()
+
+
+for (s in 1:ncol(cov)) {
+  mat <- matrix(nrow = 419, ncol = 419)
+  mat[upper.tri(mat)] <- as.matrix(cov[, ..s])
+  mat       <- as.matrix(Matrix::forceSymmetric(mat, uplo = "U"))
+  diag(mat) <- 0
+  mat       <- mat[atlas_labs$reorder, atlas_labs$reorder]
+  mat       <- smooth_matrix(mat, 
+                             atlas_labs$Network,
+                             atlas_labs$Network, return.full.matrix = T,  diagFill=FALSE)
+  filename = paste0(here('./output/figures/vector_files/2a_mat'),s,'.svg')
+  make_mean_FC_mat(mat = mat, smooth = F, 
+                   title = "", 
+                   colour.pal = rev(brewer.rdbu(100)), 
+                   save.tiff = F,
+                   save.svg = T,
+                   filename = filename)
+  
+  PNF_mats[[s]] <- image_read(  filename )
+}
+
+#rotate to diamond shape
+PNF_mats <- lapply( PNF_mats, image_rotate, degrees=-45)
+PNF_mats <- lapply( PNF_mats, image_trim)
+ab       <- \(x){image_border(x, "#FFFFFF", "10x0")}
+PNF_mats <- lapply( PNF_mats, ab)
+
+#compile
+Fig2A    <- image_append(c(PNF_mats[[1]], PNF_mats[[2]],PNF_mats[[3]]))
+Fig2A
+
+```
+
+```{r Fig3B/C network level feature weight chord diagrams for each dataset and conjunction, fig.width=3, fig.height=3}
+
+hcp_ep       <- fread(here('./output/accuracy/MM/hcpep_haufe_cogPC.txt'), sep = " ")
+tcp          <- fread(here('./output/accuracy/MM/tcp_haufe_cogPC.txt'), sep = " ")
+cnp          <- fread(here('./output/accuracy/MM/cnp_haufe_cogPC.txt'), sep = " ")
+cov          <- cbind(hcp_ep, tcp, cnp*-1)
+colname      <- c("HCP-EP", "TCP", "CNP")
+atlas_labs   <- read.csv(here('./data/atlas/atlas_labels.csv'))
+
+PNF_mats     <- list()
+PNF_mats_thr <- list()
+
+#thr mats at top 10 pct
+thr_mat <- \(mat=NULL, pct=10){
+  thr <- 1-(pct*0.01)
+  ut_mat <- abs(mat[upper.tri(mat)])
+  qthr <- quantile(ut_mat, thr)
+  mat[abs(mat)<qthr] <- 0
+  return(mat)
+}
+
+fdr_p_mat <- readRDS(here('output/accuracy/MM/nulls/17Network_mean_PNF_FDR_pvals.RDS'))
+
+binmat    <- \(x,p) { 
+  x[x<p]  <- 1 
+  x[x!=1] <- 0 
+  return(x)
+}
+
+fdr_p_mat_bin05 <- list()
+
+for (b in 1:3) { fdr_p_mat_bin05[[b]] <- binmat(fdr_p_mat[[b]], p = 0.05)}
+
+for (s in 1:ncol(cov)) {
+  mat                 <- matrix(nrow = 419, ncol = 419)
+  mat[upper.tri(mat)] <- as.matrix(cov[, ..s])
+  mat                 <- as.matrix(Matrix::forceSymmetric(mat, uplo = "U"))
+  diag(mat)           <- 0
+  mat                 <- mat[atlas_labs$reorder, atlas_labs$reorder]
+  smooth_mat          <- smooth_matrix(mat, atlas_labs$Network,atlas_labs$Network,return.full.matrix = F, diagFill = F)
+  PNF_mats[[s]]       <- smooth_mat
+  smooth_mat          <- smooth_mat*fdr_p_mat_bin05[[s]]
+  smooth_mat          <- thr_mat(smooth_mat, pct = 10)
+  PNF_mats_thr[[s]]   <- smooth_mat
+}
+
+#reorder for chord function (ordering hard coded in the make_chord function)
+reorder_chord <- c(17, 14, 15,16, 11, 12,13, 10, 9, 7,8, 5,6, 3,4,1,2,18)
+for (c in 1:3) {
+  svg(paste0(here('./output/figures/vector_files/2b_chord'),c,'.svg'))
+  make_chord(data = PNF_mats_thr[[c]][reorder_chord,reorder_chord], link_colorscale = "bwr")
+  dev.off()
+}
+
+fdr_conjunc  <- pmin(fdr_p_mat[[1]],fdr_p_mat[[2]],fdr_p_mat[[3]])
+fdr_conjunc  <- binmat(fdr_conjunc, 0.01)
+fdr_conjunc  <- fdr_conjunc * (Reduce("+", PNF_mats) / length(PNF_mats))
+
+svg(here('./output/figures/vector_files/2b_chord_conjunc.svg'))
+make_chord(data = fdr_conjunc[reorder_chord,reorder_chord], link_colorscale = "bwr")
+dev.off()
+
+svg(here('./output/figures/vector_files/2b_chord_legend.svg'))
+make_custom_legend(breaks = seq(-1,1,0.2), hcl_palette = "RdBu",
+                   labels=seq(-1,1,0.2),reverse = F)
+dev.off()
+
+```
+
+```{r Fig3C network heatmap for conjunction contrast}
+
+#reduce to 7n
+colours <- c("#9C755FFF", "#F28E2BFF", "#E15759FF", "#76B7B2FF", 
+             "#59A14FFF",  "#EDC948FF", "#B07AA1FF", "#C28C4B")
+n7Labs  <- c(rep("Visual",2), rep("SomMot",2), rep("DorsAttn",2), rep("VentAttn",2), rep("Limbic",2),
+             rep("Control", 3), rep("Default",4), "Sub") 
+n7num   <- c(1,1,2,2,3,3,4,4,5,5,6,6,6,7,7,7,7,8)
+
+fdr_conjunc[fdr_conjunc==0] <- NA
+fdr_conjunc7n <- smooth_matrix(mat = fdr_conjunc, row.cluster = n7Labs, col.cluster = n7Labs, return.full.matrix = F,  diagFill=FALSE)
+fdr_conjunc7n[is.na(fdr_conjunc7n)] <- 0
+fdr_conjunc_reduced <- fdr_conjunc7n[rowSums(fdr_conjunc7n)!=0,colSums(fdr_conjunc7n)!=0]
+fdr_conjunc_reduced[fdr_conjunc_reduced ==0] <- NA
+colnames(fdr_conjunc_reduced) <- rownames(fdr_conjunc_reduced) <- unique(n7Labs)
+fdr_conjunc_reduced_flip <- fdr_conjunc_reduced[c(6,7,3,5,4,1,2,8),c(6,7,3,5,4,1,2,8)] #filp ordering for visualization 
+fdr_conjunc_reduced_flip[is.na(fdr_conjunc_reduced_flip)] <- 0
+
+#need to paste the below into terminal, svglite hates code chunks. 
+svglite(here('./output/figures/vector_files/2b_conjunc_network_plot.svg'))
+#svg device corrupts font/labels
+corrplot(fdr_conjunc_reduced_flip, method = "circle", order = 'original',
+         is.corr                          = F,type = 'upper',
+         diag                             = T, na.label = " ",
+         na.label.col                     = "#eeeeee", 
+         col                              = rev(COL2('RdBu')), cl.pos = 'n', 
+         addgrid.col                      = 'black', tl.srt = 45, 
+         tl.col                           = colours, tl.cex = 1.5, bg = 'transparent')
+dev.off()
+
+```
+
+```{r Fig3C bar plot for conjunction contrast (uni/trans)}
+
+std <- function(x) sd(x)/sqrt(length(x))
+between_within <- rbind(c(mean(diag(fdr_conjunc[5:17,5:17]), na.rm = T),  #within association 
+                          std(diag(fdr_conjunc[5:17,5:17][!is.na(fdr_conjunc[5:17,5:17])]))),
+                        c(mean(fdr_conjunc[1:4,5:17], na.rm = T), #Between association-sensory 
+                          std(fdr_conjunc[1:4,5:17][!is.na(fdr_conjunc[1:4,5:17])])))
+
+between_within <- as.data.frame(cbind(between_within,
+                                      c("Within", "Between"),
+                                      c("Transmodal", "Transmodal-Unimodal")))
+
+colnames(between_within) <- c("Mean", "SE", "Type","Network")
+between_within$X         <- paste(between_within$Type,between_within$Network)
+between_within$Mean      <- as.numeric(unlist(between_within$Mean))
+between_within$SE        <- as.numeric(unlist(between_within$SE))
+between_within$X         <- as.factor(between_within$X)
+between_within$X         <- factor(between_within$X, levels = between_within$X)
+
+
+#need to paste the below into terminal, svglite hates code chunks. 
+svglite(here('./output/figures/vector_files/2b_conjunc_bar_plot.svg'),
+        width =3.5)
+
+ggplot(data=between_within, aes(y=Mean, x=X, fill=Type)) +
+  geom_bar(stat="identity", width = 1, show.legend = T)  +  
+  theme_classic() +
+  theme(axis.text.y=element_text(size=18), 
+        axis.title.y =element_text(size=19),
+        axis.text.x=element_text(size=18, angle = 45, hjust = 1),
+        axis.title.x =element_text(size=7), legend.position = "none") + 
+  geom_errorbar(aes(ymin=Mean-SE, ymax=Mean+SE), width=0.2) +
+  scale_fill_manual(values=c('#333333','lightgray')) + 
+  ylab("Mean PNF") + 
+  xlab("") +geom_hline(yintercept=0)
+dev.off()
+
+```
+
+```{r Fig4 witin vs between system feature weights bar plot, fig.height=4, fig.width=3}
+hcp_ep       <- fread(here('./output/accuracy/MM/hcpep_haufe_cogPC.txt'), sep = " ")
+tcp          <- fread(here('./output/accuracy/MM/tcp_haufe_cogPC.txt'), sep = " ")
+cnp          <- fread(here('./output/accuracy/MM/cnp_haufe_cogPC.txt'), sep = " ")
+cov          <- cbind(hcp_ep, tcp, cnp*-1)
+colname      <- c("HCP-EP", "TCP", "CNP")
+atlas_labs   <- read.csv(here('./data/atlas/atlas_labels.csv'))
+
+
+PNF_mats <- list()
+PNF_mats_noSmooth <- list()
+
+for (s in 1:ncol(cov)) {
+  mat <- matrix(nrow = 419, ncol = 419)
+  mat[upper.tri(mat)] <- as.matrix(cov[, ..s])
+  mat <- as.matrix(Matrix::forceSymmetric(mat, uplo = "U"))
+  diag(mat) <- 0
+  mat <- mat[atlas_labs$reorder, atlas_labs$reorder]
+  PNF_mats_noSmooth[[s]] <- mat
+  PNF_mats[[s]] <- smooth_matrix(mat = mat, 
+                                 row.cluster = atlas_labs$Network,
+                                 col.cluster = atlas_labs$Network, 
+                                 return.full.matrix = F, diagFill = F)
+}
+
+
+std <- function(x) sd(x)/sqrt(length(x))
+
+between_within <- list()
+
+for (d in 1:3){
+  between_within[[d]]  <- rbind( c(mean(diag(PNF_mats[[d]][1:4,1:4])), #within unimodal
+                                   std(diag(PNF_mats[[d]][1:4,1:4]))),
+                                 c(mean(PNF_mats[[d]][1:4,1:4][upper.tri(PNF_mats[[d]][1:4,1:4])]), #between unimodal
+                                   std(PNF_mats[[d]][1:4,1:4][upper.tri(PNF_mats[[d]][1:4,1:4])])),
+                                 c(mean(diag(PNF_mats[[d]][5:17,5:17])), #within Transmodal
+                                   std(diag(PNF_mats[[d]][5:17,5:17]))),
+                                 c(mean(PNF_mats[[d]][5:17,5:17][upper.tri(PNF_mats[[d]][5:17,5:17])]), #between Transmodal
+                                   std(PNF_mats[[d]][5:17,5:17][upper.tri(PNF_mats[[d]][5:17,5:17])])),
+                                 c(mean(diag(PNF_mats[[d]][1:17,1:17])),  #within cortical
+                                   std(diag(PNF_mats[[d]][1:17,1:17]))),
+                                 c(mean(PNF_mats[[d]][1:17,1:17][upper.tri(PNF_mats[[d]][1:17,1:17])]), #between cortical
+                                   std(PNF_mats[[d]][1:17,1:17][upper.tri(PNF_mats[[d]][1:17,1:17])])), 
+                                 c(mean(PNF_mats[[d]][18,18]), #within subcortical                                   
+                                   std(PNF_mats_noSmooth[[d]][401:419,])),
+                                 c(mean(PNF_mats_noSmooth[[d]][401:419,401:419][upper.tri(PNF_mats_noSmooth[[d]][401:419,401:419])]), #between subcortical
+                                   std(PNF_mats_noSmooth[[d]][401:419,401:419][upper.tri(PNF_mats_noSmooth[[d]][401:419,401:419])])),
+                                 c(mean(PNF_mats[[d]][1:4,5:17], na.rm = T), #Between unimodal and transmodal
+                                   std(PNF_mats[[d]][1:4,5:17])),
+                                 c(mean(PNF_mats[[d]][1:17,18]), #Between cotico-subcotrical 
+                                   std(PNF_mats[[d]][1:17,18]))
+  )
+  
+  
+  
+  
+  between_within[[d]] <- as.data.frame(cbind(between_within[[d]],
+                                             c("Within", "Between", "Within","Between", "Within", "Between","Within", "Between", "Between", "Between"),
+                                             c("Unimodal","Unimodal", "Transmodal","Transmodal", "Cortical",
+                                               "Cortical", "Subcortical",  "Subcortical", "Unimodal-Transmodal", "Cortico-Subcortical")))
+  colnames(between_within[[d]]) <- c("Mean", "SE", "Type","Network")
+  between_within[[d]]$X         <- paste(between_within[[d]]$Type,between_within[[d]]$Network)
+  between_within[[d]]$Mean      <- as.numeric(unlist(between_within[[d]]$Mean))
+  between_within[[d]]$SE        <- as.numeric(unlist(between_within[[d]]$SE))
+  between_within[[d]]$X         <- as.factor(between_within[[d]]$X)
+  between_within[[d]]$X         <- factor(between_within[[d]]$X, levels = between_within[[d]]$X)
+  between_within[[d]]$Network   <- factor(between_within[[d]]$Network, levels = unique(between_within[[d]]$Network))
+}
+
+bar_plot_list <- list()
+labs <- c("Unimodal", "", "Transmodal","", "Cortical","", "Subcortical","","Unimodal-Transmodel", "Cortico-Subcortical")
+for (p in 1:3) {
+  bar_plot_list[[p]] <- ggplot(data=between_within[[p]], aes(x=Network ,y=Mean, fill = Type)) +
+    geom_bar(width = 1,stat="identity",  show.legend = T,position=position_dodge(width = 1, preserve = 'single'))  +  
+    facet_grid(.~Network,
+               scales = 'free_x',
+               space="free") +
+    theme_classic() +
+    theme(axis.text.y      = element_text(size=8), 
+          axis.title.y     = element_blank(),
+          axis.text.x      = element_text(size=12, angle = 45, hjust = 1),
+          axis.title.x     = element_text(size=7),
+          strip.background = element_blank(),
+          strip.text       = element_blank(), 
+          axis.ticks.x     = element_blank()) + 
+    geom_errorbar(aes(ymin=Mean-SE, ymax=Mean+SE, group=Type), width=0.2,position=position_dodge(width = 1,preserve = 'single')) +
+    scale_fill_manual(values=c('#333333','lightgray','#333333','lightgray','#333333','lightgray','#333333','lightgray','#333333','#333333')) + 
+    xlab("") +  
+    coord_cartesian(clip = 'off') 
+  if(p==1 | p==2) {
+    bar_plot_list[[p]] <- bar_plot_list[[p]] + theme(legend.position = "none")
+  }
+}
+
+bar_plot_list[[1]] <-  bar_plot_list[[1]] + ylab("Average feature weight") 
+
+combined_barplot <- bar_plot_list[[1]] + bar_plot_list[[2]] + bar_plot_list[[3]]
+
+ggsave(filename = here('./output/figures/vector_files/2c_barplots.svg'), 
+       plot = combined_barplot,height=4.5, width=14, units = "in", device = "svg")
+
+```
+
+```{r Fig5B stacked ridge plots for region-level feature weights for all studies combined}
+hcp_ep       <- fread(here('./output/accuracy/MM/hcpep_haufe_cogPC.txt'), sep = " ")
+tcp          <- fread(here('./output/accuracy/MM/tcp_haufe_cogPC.txt'), sep = " ")
+cnp          <- fread(here('./output/accuracy/MM/cnp_haufe_cogPC.txt'), sep = " ")
+cov          <- cbind(hcp_ep, tcp, cnp*-1)
+colname      <- c("HCP-EP", "TCP", "CNP")
+atlas_labs   <- read.csv(here('./data/atlas/atlas_labels.csv'))
+
+
+PNF_mats <- list()
+
+for (s in 1:ncol(cov)) {
+  mat                 <- matrix(nrow = 419, ncol = 419)
+  mat[upper.tri(mat)] <- as.matrix(cov[, ..s])
+  mat                 <- as.matrix(Matrix::forceSymmetric(mat, uplo = "U"))
+  diag(mat)           <- 0
+  mat                 <- mat[atlas_labs$reorder, atlas_labs$reorder]
+  PNF_mats[[s]]       <- mat
+}
+
+pnf_roi_pos <- as.data.frame(matrix(nrow = 419, ncol = 3))
+pnf_roi_neg <- as.data.frame(matrix(nrow = 419, ncol = 3))
+for (c in 1:3) {
+  x_pos           <- x_neg <- PNF_mats[[c]] 
+  x_pos[x_pos<0]  <- 0
+  x_neg[x_neg>0]  <- 0
+  pnf_roi_pos[,c] <- rowMeans(x_pos)
+  pnf_roi_neg[,c] <- rowMeans(x_neg)
+} 
+##Make ridge plot
+colour_vals_17n =  c("VisCent" = "#781286","VisPeri" = "#FF0000","SomMotA" = "#4682B4",
+                     "SomMotB" = "#2ACCA4", "DorsAttnA" = "#4A9B3C", "DorsAttnB" = "#00760E",   
+                     "SalVentAttnA" = "#C43AFA", "SalVentAttnB" = "#FF98D5", "LimbicB = #7A8732", 
+                     "LimbicA" = "#DCF8A4", "ContA" = "#778CB0", "ContB" = "#E69422",
+                     "ContC" = "#87324A", "DefaultA" = "#000082", "DefaultB" = "#FFFF00", 
+                     "DefaultC" = "#CD3E4E", "TempPar" = "#0C30FF", "Subcortex" = "#8b0000")  
+
+
+make_ridge_plot <- \(input_data=NULL, colour_vals=NULL, reverse_x = FALSE, xlab = "") {
+  library(dplyr)
+  library(forcats)
+  library(ggridges)
+  input_data$network <- as.factor(input_data$network)
+  input_data$loading <- as.numeric(as.character(input_data$loading))
+  
+  ridge_plot <- input_data %>%
+    mutate(network = fct_reorder(network, loading, .fun='mean')) %>%
+    ggplot(aes(y=reorder(network, abs(loading)), x=loading)) + 
+    geom_density_ridges(aes(fill=network), alpha=0.7,scale = 2, size = 1) +
+    theme_minimal() + 
+    theme(legend.position = "none", 
+          axis.text.x  = element_text(size = 10),
+          axis.text.y  = element_text(size = 17),
+          axis.title.x = element_text(size=17),
+          axis.title.y=element_text(size=18, vjust = 2)) +
+    scale_fill_manual(values = colour_vals) + 
+    xlab(xlab) + 
+    ylab("") + 
+    coord_cartesian(clip = "off")
+  if(reverse_x == T) {ridge_plot <- ridge_plot +  scale_x_reverse()}
+  return(ridge_plot)
+}
+
+atlas_labs <- readxl::read_xlsx(here('./data/atlas/atlas_labels.xlsx'), sheet = 1)
+atlas_labs <-  atlas_labs[order(atlas_labs$reorder),]
+vals <- cbind(atlas_labs$Network, pnf_roi_pos, pnf_roi_neg)
+x <- as.matrix(vals[,1:2])
+y <- as.matrix(vals[,c(1,3)])
+z <- as.matrix(vals[,c(1,4)])
+l <- list(x,y,z)
+vals_pos <- as.data.frame(do.call("rbind",l))
+colnames(vals_pos)  <- c("network","loading")
+pos <- make_ridge_plot(input_data = vals_pos, 
+                       colour_vals = colour_vals_17n,
+                       reverse_x=F,
+                       xlab="Positive predictive feature weight")
+
+
+x <- as.matrix(vals[,c(1,5)])
+y <- as.matrix(vals[,c(1,6)])
+z <- as.matrix(vals[,c(1,7)])
+l <- list(x,y,z)
+vals_neg <- as.data.frame(do.call("rbind",l))
+colnames(vals_neg)  <- c("network","loading")
+neg <- make_ridge_plot(input_data = vals_neg, 
+                       colour_vals = colour_vals_17n,
+                       reverse_x=T,
+                       xlab="Negative predictive feature weight")
+rp_17n <- pos | neg 
+
+ggsave(here('./output/figures/vector_files/4a_network_ridge.svg', plot = rp_17n,
+            height=10, width=14, units = "in"))
+```
+
+```{r Fig5A Region-level feature weights plotted on brains}
+#Note this requires a python/conda env with pysurfer and pyvista installed, which is called form the 
+#plot_on_brain_pysurf function.
+
+atlas_labs <- readxl::read_xlsx(here('./data/atlas/atlas_labels.xlsx'),
+                                sheet = 1)
+atlas_labs <-  atlas_labs[order(atlas_labs$reorder),]
+
+vals <- cbind(atlas_labs$Label, pnf_roi_pos, pnf_roi_neg)
+
+#need to repeat brain stem for vis purpose (visible on both left and right views) - 
+# added as last value of vector for right hemi (index 420)
+vals[nrow(vals) + 1,] <- vals[406,]
+
+#flip neg PNF so high == more predictive (easier to plot/visualize)
+vals[,5:7] <- vals[,5:7]*-1
+
+#convert to pct
+make_pct <- \(x){(x  - min(x)) / (max(x) - min(x)) * 100}
+
+vals[,2:7] <- apply(vals[,2:7], 2, make_pct)
+vals[,2:7] <- apply(vals[,2:7], 2, round)
+
+
+brain_plot_list <- list()
+
+for(s in 1:6) {
+  if(s %in% c(1,2,3)) {colorscale = "Reds"}
+  if(s %in% c(4,5,6)) {colorscale = "Blues"}
+  brain_plot_list[[s]] <- plot_on_brain_pysurf(plot_vector = vals[,s+1], 
+                                               colourscale = colorscale,
+                                               surf = "inflated", 
+                                               diverging = F,
+                                               add.cb = F, 
+                                               temppath = here('scripts/visualisation/temp/'))
+}
+
+
+#add white space border
+ab <- \(x){image_border(x, "#FFFFFF", "50x0")}
+pos_PNF_renderings <- image_append(c(ab(brain_plot_list[[1]]), ab(brain_plot_list[[2]]),ab(brain_plot_list[[3]])))
+neg_PNF_renderings <- image_append(c(ab(brain_plot_list[[4]]),ab(brain_plot_list[[5]]),ab(brain_plot_list[[6]])))
+ab <- \(x){image_border(x, "#FFFFFF", "0x50")}
+all <- image_append(c(ab(pos_PNF_renderings), ab(neg_PNF_renderings)), stack = T)
+
+image_write(all, path = here('./output/figures/vector_files/4b_brains.png'), format = "png")
+
+#colour bar (only words outside code chunk - i.e. paste into R terminal)
+make_custom_legend(height=5, width=6, breaks = seq(0,100,10), hcl_palette = "Reds", reverse = T, direction = "vertical")
+make_custom_legend(height=5, width=6, breaks = seq(0,100,10), hcl_palette = "Blues", reverse = T,direction = "vertical")
+
+
+```
+
+
+Supplementary figures.
+
+```{r accuracy of MM and krr models assessed using COD}
+#Load data
+hcpep_mm  <- read.table(here('./output/accuracy/MM/hcpep_COD_cogPC.txt'))[-1]
+hcpep_krr <- read.table(here('./output/accuracy/KRR/hcpep_COD_cogPC.txt'))[-1]
+tcp_mm    <- read.table(here('./output/accuracy/MM/tcp_COD_cogPC.txt'))[-1]
+tcp_krr   <- read.table(here('./output/accuracy/KRR/tcp_COD_cogPC.txt'))[-1]
+cnp_mm    <- read.table(here('./output/accuracy/MM/cnp_COD_cogPC.txt'))[-1]
+cnp_krr   <- read.table(here('./output/accuracy/KRR/cnp_COD_cogPC.txt'))[-1]
+
+
+mean(as.numeric(unlist(hcpep_mm)))
+mean(as.numeric(unlist(tcp_mm)))
+mean(as.numeric(unlist(cnp_mm)))
+
+mean(as.numeric(unlist(hcpep_krr)))
+mean(as.numeric(unlist(tcp_krr)))
+mean(as.numeric(unlist(cnp_krr)))
+
+
+hcpep_mm <- as.data.frame(cbind(t(hcpep_mm), rep("hcpep",100),rep("MM",100)))
+hcpep_krr <- as.data.frame(cbind(t(hcpep_krr), rep("hcpep",100),rep("KRR",100)))
+tcp_mm <- as.data.frame(cbind(t(tcp_mm), rep("tcp",100),rep("MM",100)))
+tcp_krr <- as.data.frame(cbind(t(tcp_krr), rep("tcp",100),rep("KRR",100)))
+cnp_mm <- as.data.frame(cbind(t(cnp_mm), rep("cnp",100),rep("MM",100)))
+cnp_krr <- as.data.frame(cbind(t(cnp_krr), rep("cnp",100),rep("KRR",100)))
+colnames(hcpep_mm) <- colnames(hcpep_krr) <- colnames(tcp_mm) <- 
+  colnames(tcp_krr) <- colnames(cnp_mm) <- colnames(cnp_krr) <- c("Accuracy","Dataset", "Model")
+
+#put all data frames into list
+df_list <- list(hcpep_mm, hcpep_krr, tcp_mm, tcp_krr, cnp_mm, cnp_krr)
+
+#merge all data frames in list
+data <- Reduce(function(x, y) merge(x, y, all=TRUE), df_list)
+data$dataset <- as.factor(data$Dataset)
+data$model <- as.factor(data$Model)
+data$accuracy <- as.numeric(data$Accuracy)
+
+
+lab.size = 22
+title.size = 24
+line.thickness = 0.6
+
+# *** <.00001, ** <.001 * <.05
+ggplot(data, aes(x = dataset, y = accuracy, fill = model)) +	
+  geom_hline(yintercept=c(0), linetype="longdash", colour="lightgray") +
+  introdataviz::geom_split_violin(alpha = .3, trim = F, width =0.8, colour =NA) + 
+  geom_boxplot(width = .2, alpha = 0.4, fatten = T, show.legend = FALSE,outlier.shape = NA, coef=1) +
+  stat_summary(fun="mean", geom="point", size=2,
+               position=position_dodge(width=0.2), color="black") +
+  scale_x_discrete(name = "Dataset", labels = c("HCP-EP", "TCP", "CNP")) + 
+  ylab("Accuracy (COD)") +  
+  scale_fill_brewer(palette = "Set1", name = "Model") + 
+  theme(axis.text.y=element_text(size=lab.size, colour = "black"),
+        axis.title.y =element_text(size=title.size, colour = "black"),
+        axis.text.x=element_text(size=lab.size, colour = "black",hjust = 0.4),
+        axis.title.x =element_text(size=title.size, colour = "black"),
+        axis.line = element_line(colour = "black", size = line.thickness),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        legend.text=element_text(size=lab.size-2, colour = "black"),
+        legend.title=element_text(size=title.size-2, colour = "black")) + 
+  guides(fill = guide_legend(override.aes = list(shape = NA))) #+ 
+
+
+
+```
+
+```{r MM and krr genralisibility matrix using COD}
+genmat_mm <- as.matrix(read.table(here('./output/generalizability/mm_generalizability_matrix_COD.txt')))
+
+genmat_krr <- as.matrix(read.table(here('./output/generalizability/krr_generalizability_matrix_COD.txt')))
+
+diag(genmat_mm) <- round(c(mean(as.numeric(unlist(data$Accuracy[data$Dataset=="hcpep" & data$Model=="MM"]))),
+                           mean(as.numeric(unlist(data$Accuracy[data$Dataset=="tcp" & data$Model=="MM"]))),
+                           mean(as.numeric(unlist(data$Accuracy[data$Dataset=="cnp" & data$Model=="MM"])))),2)
+
+diag(genmat_krr) <- round(c(mean(as.numeric(unlist(data$Accuracy[data$Dataset=="hcpep" & data$Model=="KRR"]))),
+                            mean(as.numeric(unlist(data$Accuracy[data$Dataset=="tcp" & data$Model=="KRR"]))),
+                            mean(as.numeric(unlist(data$Accuracy[data$Dataset=="cnp" & data$Model=="KRR"])))),2)
+row.names(genmat) <- colnames(genmat) <- c("HCPEP", "TCP", "CNP")
+row.names(genmat_krr) <- colnames(genmat_krr) <- c("HCPEP", "TCP", "CNP")
+
+llim <- min(genmat,genmat_krr)
+ulim <- max(genmat,genmat_krr)
+
+#setEPS()
+#postscript("/Users/sidchopra/Dropbox/Sid/python_files/metamatching/output/Results/eps_files/Sup_generalizability_MM_COD.eps", height = 8, width = 8)
+#{
+#par(xpd=TRUE)
+corrplot(genmat_krr, method = "color",  
+         col = rev(COL2('RdYlBu', 100)),
+         col.lim = c(-.55,.25),
+         addCoef.col = 'black',
+         tl.col="black", tl.cex=2.5, 
+         tl.srt=45, 
+         is.corr=F, 
+         cl.length=5, 
+         cl.ratio=0.7,number.cex = 2,
+         addgrid.col = "black", 
+         cl.cex = 2, na.label = " ")
+#col = colorRampPalette(c("blue","white","red"))(2))
+#mtext("Train", side=3, padj = -2, cex = 3)
+#mtext("Test", side=2, padj = -2,cex = 3)
+#}
+
+#dev.off()
+
+
+corrplot(genmat_mm, method = "color",  
+         col.lim = c(-.55,.25),
+         col = rev(COL2('RdYlBu', 100)), 
+         addCoef.col = 'black',
+         tl.col="black", tl.cex=2.5, 
+         tl.srt=45, 
+         is.corr=F, 
+         cl.length=5, 
+         cl.ratio=0.7,number.cex = 2,
+         addgrid.col = "black", cl.cex = 2, na.label = " ")
+
+
+```
+
+```{r genralisibility matrix for KRR}
+genmat <- as.matrix(abs(read.table(here('./output/generalizability/krr_generalizability_matrix.txt'))))
+
+#add insample mean accuracy as diagonal
+diag(genmat) <- round(c(mean(as.numeric(unlist(data$Accuracy[data$Dataset=="hcpep" & data$Model=="KRR"]))),
+                        mean(as.numeric(unlist(data$Accuracy[data$Dataset=="tcp" & data$Model=="KRR"]))),
+                        mean(as.numeric(unlist(data$Accuracy[data$Dataset=="cnp" & data$Model=="KRR"])))),2)
+
+row.names(genmat) <- colnames(genmat) <- c("HCPEP", "TCP", "CNP")
+
+
+
+#setEPS()
+#postscript("/Users/sidchopra/Dropbox/Sid/python_files/metamatching/output/Results/eps_files/1c_generalizability.eps", height = 8, width = 8)
+#{
+#par(xpd=TRUE)
+corrplot(genmat, method = "circle",  
+         col.lim = c(0,0.6),
+         col = COL1('OrRd', 100), 
+         addCoef.col = 'black',
+         tl.col="black", tl.cex=2.5, 
+         tl.srt=45, 
+         is.corr=F, 
+         cl.length=4, 
+         cl.ratio=0.4,number.cex = 2,
+         addgrid.col = "black", cl.cex = 2, na.label = " ")
+#  mtext("Train", side=3, padj = -2, cex = 3)
+#  mtext("Test", side=2, padj = -2,cex = 3)
+#}
+#dev.off()
+
+
+```
+
+```{r stacked ridge plot for regional feature weights 7 networks}
+colour_vals_7n = c("Vis" = "#9C755FFF", "SomMot" = "#F28E2BFF",
+                   "DorsAttn"= "#E15759FF","SalVentAttn" = "#76B7B2FF", 
+                   "Limbic" = "#59A14FFF", "Cont" = "#EDC948FF", 
+                   "Default" = "#B07AA1FF", "Subcort" = "#5575b3FF")
+
+#prepare dataframe with first col as network categories and the rest of the cols as the loading's plotted as individual plots
+atlas_labs <- readxl::read_xlsx(here('./data/atlas/atlas_labels.xlsx'), sheet = 1)
+atlas_labs <-  atlas_labs[order(atlas_labs$reorder),]
+vals <- cbind(atlas_labs$network_7n, pnf_roi_pos, pnf_roi_neg)
+
+#7 network plots 
+ridge_7n_plot_list <- list()
+for(s in 1:6) { 
+  input_data <- as.data.frame(cbind(vals[,1], vals[,s+1]))
+  colnames(input_data)  <- c("network","loading")
+  if(s %in% c(4,5,6)) 
+  {reverse_x = TRUE
+  xlab = "Mean Negative PNF" 
+  } else {
+    reverse_x = FALSE
+    xlab = "Mean Positive PNF" }
+  ridge_7n_plot_list[[s]] <- make_ridge_plot(input_data = input_data, 
+                                             colour_vals = colour_vals_7n,
+                                             reverse_x=reverse_x,
+                                             xlab=xlab)
+}
+
+#combine plots
+cowplot::plot_grid(ridge_7n_plot_list[[1]], ridge_7n_plot_list[[2]], ridge_7n_plot_list[[3]],
+                   ridge_7n_plot_list[[4]], ridge_7n_plot_list[[5]], ridge_7n_plot_list[[6]])
+
+#combined distributions
+x <- as.matrix(vals[,1:2])
+y <- as.matrix(vals[,c(1,3)])
+z <- as.matrix(vals[,c(1,4)])
+l <- list(x,y,z)
+vals_pos <- as.data.frame(do.call("rbind",l))
+colnames(vals_pos)  <- c("network","loading")
+make_ridge_plot(input_data = vals_pos, 
+                colour_vals = colour_vals_7n,
+                reverse_x=F,
+                xlab="Mean Positive PNF")
+
+x <- as.matrix(vals[,c(1,5)])
+y <- as.matrix(vals[,c(1,6)])
+z <- as.matrix(vals[,c(1,7)])
+l <- list(x,y,z)
+vals_neg <- as.data.frame(do.call("rbind",l))
+colnames(vals_neg)  <- c("network","loading")
+make_ridge_plot(input_data = vals_neg, 
+                colour_vals = colour_vals_7n,
+                reverse_x=T,
+                xlab="Mean Negative PNF")
+
+```
+
+```{r stacked ridge plots for region-level feature weights for each study}
+hcp_ep       <- fread(here('./output/accuracy/MM/hcpep_haufe_cogPC.txt'), sep = " ")
+tcp          <- fread(here('./output/accuracy/MM/tcp_haufe_cogPC.txt'), sep = " ")
+cnp          <- fread(here('./output/accuracy/MM/cnp_haufe_cogPC.txt'), sep = " ")
+
+cov          <- cbind(hcp_ep, tcp, cnp*-1)
+colname      <- c("HCP-EP", "TCP", "CNP")
+atlas_labs   <- read.csv(here('./data/atlas/atlas_labels.csv'))
+
+
+PNF_mats <- list()
+
+for (s in 1:ncol(cov)) {
+  mat                 <- matrix(nrow = 419, ncol = 419)
+  mat[upper.tri(mat)] <- as.matrix(cov[, ..s])
+  mat                 <- as.matrix(Matrix::forceSymmetric(mat, uplo = "U"))
+  diag(mat)           <- 0
+  mat                 <- mat[atlas_labs$reorder, atlas_labs$reorder]
+  PNF_mats[[s]]       <- mat
+}
+
+pnf_roi_pos <- as.data.frame(matrix(nrow = 419, ncol = 3))
+pnf_roi_neg <- as.data.frame(matrix(nrow = 419, ncol = 3))
+for (c in 1:3) {
+  x_pos           <- x_neg <- PNF_mats[[c]] 
+  x_pos[x_pos<0]  <- 0
+  x_neg[x_neg>0]  <- 0
+  pnf_roi_pos[,c] <- rowMeans(x_pos)
+  pnf_roi_neg[,c] <- rowMeans(x_neg)
+} 
+##Make ridge plot
+colour_vals_17n =  c("VisCent" = "#781286","VisPeri" = "#FF0000","SomMotA" = "#4682B4",
+                     "SomMotB" = "#2ACCA4", "DorsAttnA" = "#4A9B3C", "DorsAttnB" = "#00760E",   
+                     "SalVentAttnA" = "#C43AFA", "SalVentAttnB" = "#FF98D5", "LimbicB = #7A8732", 
+                     "LimbicA" = "#DCF8A4", "ContA" = "#778CB0", "ContB" = "#E69422",
+                     "ContC" = "#87324A", "DefaultA" = "#000082", "DefaultB" = "#FFFF00", 
+                     "DefaultC" = "#CD3E4E", "TempPar" = "#0C30FF", "Subcortex" = "#8b0000")  
+
+
+make_ridge_plot <- \(input_data=NULL, colour_vals=NULL, reverse_x = FALSE, xlab = "") {
+  library(dplyr)
+  library(forcats)
+  library(ggridges)
+  input_data$network <- as.factor(input_data$network)
+  input_data$loading <- as.numeric(as.character(input_data$loading))
+  
+  ridge_plot <- input_data %>%
+    mutate(network = fct_reorder(network, loading, .fun='mean')) %>%
+    ggplot(aes(y=reorder(network, abs(loading)), x=loading)) + 
+    geom_density_ridges(aes(fill=network), alpha=0.7,scale = 2, size = 1) +
+    theme_minimal() + 
+    theme(legend.position = "none", 
+          axis.text.x  = element_text(size = 10),
+          axis.text.y  = element_text(size = 17),
+          axis.title.x = element_text(size=17),
+          axis.title.y=element_text(size=18, vjust = 2)) +
+    scale_fill_manual(values = colour_vals) + 
+    xlab(xlab) + 
+    ylab("") + 
+    coord_cartesian(clip = "off")
+  if(reverse_x == T) {ridge_plot <- ridge_plot +  scale_x_reverse()}
+  return(ridge_plot)
+}
+
+atlas_labs <- readxl::read_xlsx(here('./data/atlas/atlas_labels.xlsx'), sheet = 1)
+atlas_labs <-  atlas_labs[order(atlas_labs$reorder),]
+vals <- cbind(atlas_labs$Network, pnf_roi_pos, pnf_roi_neg)
+
+ridge_17n_plot_list <- list()
+for(s in 1:6) { 
+  input_data <- as.data.frame(cbind(vals[,1], vals[,s+1]))
+  colnames(input_data)  <- c("network","loading")
+  if(s %in% c(4,5,6)) 
+  {reverse_x = TRUE
+  xlab = "Negative predictive features" 
+  } else {
+    reverse_x = FALSE
+    xlab = "Positive predictive features" }
+  ridge_17n_plot_list[[s]] <- make_ridge_plot(input_data = input_data, 
+                                              colour_vals = colour_vals_17n,
+                                              reverse_x=reverse_x,
+                                              xlab=xlab)
+}
+
+
+rp_17n <- ( ridge_17n_plot_list[[1]] | ridge_17n_plot_list[[2]] | ridge_17n_plot_list[[3]] ) / 
+  ( ridge_17n_plot_list[[4]] | ridge_17n_plot_list[[5]] | ridge_17n_plot_list[[6]] )
+
+rp_17n 
+```
+
+```{r generalizability MM scatter plots}
+#Scatters 
+lab.size = 12
+title.size = 24
+line.thickness = 1
+
+
+theme_custom <- theme(legend.position = "none", 
+                      axis.text.y=element_text(size=lab.size, colour = "black"),
+                      axis.title.y =element_text(size=title.size,colour = "black"),
+                      axis.text.x=element_text(size=lab.size,colour = "black"),
+                      axis.title.x =element_text(size=title.size,colour = "black"),
+                      axis.line = element_line(colour = "black", size = line.thickness),
+                      panel.grid.major = element_blank(),
+                      panel.grid.minor = element_blank(),
+                      panel.background = element_blank())
+
+make_scatter<- function(data=NULL, xlabs=NULL, ylabs=NULL, 
+                        dot.colour = NULL, line.colour="#a70000"){ 
+  options(scipen=999) 
+  library(ggdensity)
+  library(ggdist)
+  library(ggplot2)
+  return(ggplot(data, aes(x = V1, y = V2)) +
+           geom_point(alpha=0.3, size=4, colour=dot.colour) + 
+           stat_smooth(geom = "line", 
+                       lineend = "round", 
+                       color =  line.colour, 
+                       method="lm", size=1.3, ) +  
+           xlab(xlabs) +
+           ylab(ylabs) +
+           theme_custom + 
+           ggpubr::stat_cor(aes(label = ..r.label.., size=5), label.y.npc  = 0.02, label.x.npc = 0.20))  
+}
+hcpep_tcp <- read.table(here('./output/generalizability/mm_train_hcpep_test_tcp.csv'))
+
+hcpep_cnp <- read.table(here('./output/generalizability/mm_train_hcpep_test_cnp.csv'))
+
+tcp_hcpep <- read.table(here('./output/generalizability/mm_train_tcp_test_hcpep.csv'))
+
+tcp_cnp   <- read.table(here('./output/generalizability/mm_train_tcp_test_cnp.csv'))
+
+cnp_hcpep <- read.table(here('./output/generalizability/mm_train_cnp_test_hcpep.csv'))
+
+cnp_tcp   <- read.table(here('./output/generalizability/mm_train_cnp_test_tcp.csv'))
+
+annotate_npc <- function(label, x, y, size, ...) {
+  ggplot2::annotation_custom(grid::textGrob(
+    x = unit(x, "npc"), y = unit(y, "npc"), label = label, gp = gpar(fontsize = size),...,))
+}
+
+p1 <- make_scatter(data = tcp_hcpep , dot.colour = "#377EB8", 
+                   line.colour = "black") + annotate_npc(label = "; p = .036", 0.7,0.055,12)
+
+p2 <- make_scatter(data = cnp_hcpep, dot.colour = "#377EB8", 
+                   line.colour = "black") + annotate_npc(label = "; p < .001", 0.7,0.055,12)
+
+p3 <- make_scatter(data = hcpep_tcp, dot.colour = "#377EB8", 
+                   line.colour = "black") + annotate_npc(label = "; p = .283", 0.7,0.055,12)
+
+p4 <- make_scatter(data = cnp_tcp, dot.colour = "#377EB8", 
+                   line.colour = "black") + annotate_npc(label = "; p = .032", 0.7,0.055,12)
+
+p5 <- make_scatter(data = hcpep_cnp, dot.colour = "#377EB8", 
+                   line.colour = "black") + annotate_npc(label = "; p = .045", 0.7,0.055,12)
+
+p6 <- make_scatter(data = tcp_cnp, dot.colour = "#377EB8", 
+                   line.colour = "black") + annotate_npc(label = "; p = .002", 0.7,0.055,12)
+
+b <- ggplot() + theme_void()
+
+cowplot::plot_grid(b, p1, p2, p3, b, p4, p5, p6, b, 
+                   label_size = 4)
+```
+
+```{r comparing MM and krr generalizability using a dumbell plot}
+
+label <- c("TCP-HCPEP", "CNP-HCPEP", "HCPEP-TCP", "CNP-TCP", "HCPEP-CNP", "TCP-CNP")
+mm_gen <- c(0.334, 0.394, 0.210, 0.351, 0.332, 0.361)
+krr_gen <- c(0.299, 0.187, 0.299, 0.329, 0.085, 0.295)
+
+diff <- ((mm_gen-krr_gen)/abs(krr_gen))*100
+
+diff[c(1,2,4,5,6)] <- paste0("+",round(abs(diff[c(1,2,4,5,6)])), "%")
+diff[c(3)] <- paste0("-",round(abs(as.numeric(diff[c(3)]))), "%")
+dumbell_data <- data.frame(label, mm_gen, krr_gen,diff)
+dumbell_data$label<- factor(dumbell_data$label, levels = dumbell_data$label)
+
+
+blue <- "#EF828B"
+red <- "#377EB8"
+lab.size = 20
+title.size = 22
+line.thickness = 0.6
+ggplot() +
+  geom_segment(data=dumbell_data, aes(y=label, yend=label, x=0, xend=.5),
+               color="#b2b2b2", size=0.15) + 
+  geom_dumbbell(data=dumbell_data, aes(y=label, x=mm_gen, xend=krr_gen),
+                size=1.5, color="#b2b2b2", size_x=4, size_xend = 4,
+                colour_x = red, colour_xend = blue, alpha = 0.8) + 
+  coord_flip() + 
+  theme(axis.text.y        = element_text(size=lab.size, colour = "black"),
+        axis.title.y       = element_text(size=title.size, colour = "black"),
+        axis.text.x        = element_text(size=lab.size-5, colour = "black",hjust = 1,angle = 25),
+        axis.title.x       = element_text(size=title.size, colour = "black"),
+        axis.line          = element_line(colour = "black", size = line.thickness),
+        panel.grid.major.y = element_line(colour = "lightgrey"),
+        panel.background   = element_blank(),
+        legend.text        = element_text(size=lab.size-2, colour = "black"),
+        legend.title       = element_text(size=title.size-2, colour = "black")) +
+  xlab("Accuracy") + 
+  ylab("Train-Test pair") + geom_rect(data=dumbell_data, aes(xmin=0.45, xmax=0.50, ymin=-Inf, ymax=Inf), fill="lightgrey") + 
+  geom_text(data=dumbell_data, aes(label=diff, y=label, x=0.475), fontface="bold", size=3, family="Calibri")
+
+
+```
+
+```{r feature weight matricies without network smoothing,  fig.width=2.4, fig.height=3}
+
+make_mean_FC_mat <- \(mat=NULL, 
+                      title="", 
+                      smooth=F, 
+                      save.tiff = F,
+                      save.eps = F,
+                      save.svg = F,
+                      filename=NULL,
+                      colour.pal = rev(brewer.rdylbu(100))) {
+  if(save.tiff==T){
+    tiff(filename, width = 4.75, height = 6, units = 'in', res = 300,type = c("cairo"))
+  }
+  if(save.eps==T){
+    setEPS()
+    postscript(filename, width = 4.75, height = 6)
+  }
+  if(save.svg==T){
+    svg(filename, width = 4.75, height = 6,type = c("cairo"))
+  }
+  atlas_labs <- read.csv(here('./data/atlas/atlas_labels.csv'))
+  
+  superheat(X = mat,
+            membership.rows = atlas_labs$Network,
+            membership.cols = atlas_labs$Network,
+            left.label.col=unique(atlas_labs$colour),
+            bottom.label.col=unique(atlas_labs$colour),
+            left.label.size = 0.04,
+            left.label.text.size = 0,
+            bottom.label.size = 0.04,
+            bottom.label.text.size = 0,
+            bottom.label.text.angle = 90,
+            extreme.values.na = F,
+            grid.hline.size = 0.8, 
+            grid.vline.size	= 0.8,
+            #     heat.lim = c(min(mat), max(mat)), 
+            heat.pal = colour.pal,
+            #     heat.pal.values = c(0, 0.15, 0.25, 0.75,1),
+            title=title, 
+            title.alignment = "center", 
+            title.size = 6,
+            smooth.heat = smooth,
+            legend.height = 0.05,
+            legend.width = .7,
+            legend.text.size = 7)
+  if(save.tiff==T | save.eps==T | save.svg==T){
+    while (!is.null(dev.list()))  dev.off()
+  }
+}
+
+hcpep   <- fread(here('./output/accuracy/MM/hcpep_haufe_cogPC.txt'))
+tcp     <- fread(here('./output/accuracy/MM/tcp_haufe_cogPC.txt'))
+cnp     <- fread(here('./output/accuracy/MM/cnp_haufe_cogPC.txt'))
+cov     <- cbind(hcpep, tcp, cnp*-1)
+
+colname <- c("HCP-EP", "TCP", "CNP")
+atlas_labs <- read.csv(here('./data/atlas/atlas_labels.csv'))
+PNF_mats <- list()
+
+for (s in 1:ncol(cov)) {
+  mat <- matrix(nrow = 419, ncol = 419)
+  mat[upper.tri(mat)] <- as.matrix(cov[, s])
+  mat <- as.matrix(Matrix::forceSymmetric(mat, uplo = "U"))
+  diag(mat) <- 0
+  mat <- mat[atlas_labs$reorder, atlas_labs$reorder]
+  make_mean_FC_mat(mat = mat, smooth = F, 
+                   title = "", 
+                   colour.pal = rev(brewer.rdbu(100)), 
+                   save.tiff = T,
+                   save.svg = F,
+                   filename = "temp.tiff")
+  #filename = "/Users/sidchopra/Dropbox/Sid/python_files/metamatching/output/Results/eps_files/2a_mat3_cnp.svg")
+  PNF_mats[[s]] <- image_read("temp.tiff")
+}
+
+#rotate to diamond shape
+
+PNF_mats <- lapply( PNF_mats, image_rotate, degrees=-45)
+PNF_mats <- lapply( PNF_mats, image_trim)
+ab <- \(x){image_border(x, "#FFFFFF", "10x0")}
+PNF_mats <- lapply( PNF_mats, ab)
+
+
+#compile
+Fig <- image_append(c(PNF_mats[[1]], PNF_mats[[2]],PNF_mats[[3]]))
+Fig
+```
+
+```{r accuracy of krr vs MM after regressing covars}
+hcpep_mm        <- read.table(here('./output/accuracy/MM/hcpep_pearsonr_cogPC_ASFd.txt'))[-1]
+hcpep_krr       <- read.table(here('./output/accuracy/KRR/hcpep_pearsonr_cogPC_ASFd.txt'))[-1]
+tcp_mm          <- read.table(here('./output/accuracy/MM/tcp_pearsonr_cogPC_ASFd.txt'))[-1]
+tcp_krr         <- read.table(here('./output/accuracy/KRR/tcp_pearsonr_cogPC_ASFd.txt'))[-1]
+cnp_mm          <- read.table(here('./output/accuracy/MM/cnp_pearsonr_cogPC_ASFd.txt'))[-1]
+cnp_krr         <- read.table(here('./output/accuracy/KRR/cnp_pearsonr_cogPC_ASFd.txt'))[-1]
+
+
+hcpep_mm  <- as.data.frame(cbind(t(hcpep_mm), rep("hcpep",100),rep("MM",100)))
+hcpep_krr <- as.data.frame(cbind(t(hcpep_krr), rep("hcpep",100),rep("KRR",100)))
+tcp_mm    <- as.data.frame(cbind(t(tcp_mm), rep("tcp",100),rep("MM",100)))
+tcp_krr   <- as.data.frame(cbind(t(tcp_krr), rep("tcp",100),rep("KRR",100)))
+cnp_mm    <- as.data.frame(cbind(t(cnp_mm), rep("cnp",100),rep("MM",100)))
+cnp_krr   <- as.data.frame(cbind(t(cnp_krr), rep("cnp",100),rep("KRR",100)))
+
+colnames(hcpep_mm)  <- colnames(hcpep_krr) <- colnames(tcp_mm) <- 
+  colnames(tcp_krr) <- colnames(cnp_mm) <- colnames(cnp_krr) <- c("Accuracy","Dataset", "Model")
+
+mean(as.numeric(hcpep_mm$Accuracy))
+mean(as.numeric(hcpep_krr$Accuracy))
+mean(as.numeric(tcp_mm$Accuracy))   
+mean(as.numeric(tcp_krr$Accuracy))  
+mean(as.numeric(cnp_mm$Accuracy))  
+mean(as.numeric(cnp_krr$Accuracy))
+
+#put all data frames into list
+df_list       <- list(hcpep_mm, hcpep_krr, tcp_mm, tcp_krr, cnp_mm, cnp_krr)
+#merge all data frames in list
+data          <- Reduce(function(x, y) merge(x, y, all=TRUE), df_list)
+data$Dataset  <- as.factor(data$Dataset)
+data$Model    <- as.factor(data$Model)
+data$Accuracy <- as.numeric(data$Accuracy)
+
+data$Dataset  <- factor(data$Dataset, levels = c("hcpep", "tcp", "cnp"))
+
+lab.size = 22
+title.size = 24
+line.thickness = 0.6
+
+bracketsGrob <- function(...){
+  l          <- list(...)
+  e          <- new.env()
+  e$l        <- l
+  grid:::recordGrob(  {
+    do.call(grid.brackets, l)
+  }, e)
+}
+
+
+# note that units here are "npc", the only unit (besides physical units) that makes sensewhen annotating the plot panel in ggplot2 (since we have no access to native units)
+b1 <- bracketsGrob(0.24, 0.08, 0.04, 0.08, h=0.04, lwd=2, col="black")
+b2 <- bracketsGrob(.6, 0.08, 0.4, 0.08, h=0.04,  lwd=2, col="black")
+b3 <- bracketsGrob(.955, 0.08, 0.755, 0.08, h=0.04,  lwd=2, col="black")
+
+# *** <.00001, ** <.001 * <.05
+Fig  <- ggplot(data, aes(x = Dataset, y = Accuracy, fill = Model)) +	
+  # geom_hline(yintercept=c(0), linetype="longdash", colour="lightgray") +
+  introdataviz::geom_split_violin(alpha = .3, trim = F, width =0.8, colour =NA) + 
+  geom_boxplot(width = .2, alpha = 0.4, fatten = T, show.legend = FALSE,outlier.shape = NA, coef=1) +
+  stat_summary(fun="mean", geom="point", size=2,
+               position=position_dodge(width=0.2), color="black") +
+  scale_x_discrete(name = "Dataset", labels = c("HCP-EP", "TCP", "CNP")) + 
+  ylab("Accuracy") +
+  scale_fill_brewer(palette = "Set1", name = "Model") + 
+  annotate("text", x = 1.1, y = 0.78,  size = 6,
+           alpha     = 1, 
+           colour    = "#377EB8", label = "***") + 
+  annotate("text", x = 2.1, y = 0.78,  size = 6,
+           alpha     = 1, 
+           colour    = "#377EB8", label = "*") + 
+  annotate("text", x = 3.1, y = 0.78,  size = 6,
+           alpha     = 1, 
+           colour    = "#377EB8", label = "***") + 
+  annotate("text", x = 1.05-0.2, y = 0.78,  size = 6,
+           alpha     = 1, 
+           colour    = "#EF828B", label = "**") + 
+  annotate("text", x = 2.05-0.2, y = 0.78,  size = 4,
+           alpha     =1, 
+           colour    = "#EF828B", label = "ns") + 
+  annotate("text", x = 3.05-0.2, y = 0.78,  size = 6,
+           alpha     = 1, 
+           colour    = "#EF828B", label = "**") +  
+  annotate("text", x = 1, y = -0.65,  size = 6,
+           alpha     = 1, 
+           colour    = "Black", label = "^") +  
+  annotate("text", x = 2, y = -0.65,  size = 6,
+           alpha     = 1, 
+           colour    = "Black", label = "^") +  
+  annotate("text", x = 3, y = -0.65,  size = 6,
+           alpha     = 1, 
+           colour    = "Black", label = "^") +
+  annotation_custom(b1) + 
+  annotation_custom(b2) +
+  annotation_custom(b3) +
+  scale_y_continuous(breaks=seq(-0.65,0.9,0.2), labels = number_format(accuracy = 0.01)) + 
+  coord_cartesian(ylim = c(-0.65,0.9), expand=c(0,0)) +
+  theme(axis.text.y      = element_text(size=lab.size, colour = "black"),
+        axis.title.y     = element_text(size=title.size, colour = "black"),
+        axis.text.x      = element_text(size=lab.size, colour = "black",hjust = 0.4),
+        axis.title.x     = element_text(size=title.size, colour = "black"),
+        axis.line        = element_line(colour = "black", size = line.thickness),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        legend.text      = element_text(size=lab.size-2, colour = "black"),
+        legend.title     = element_text(size=title.size-2, colour = "black")) + 
+  guides(fill = guide_legend(override.aes = list(shape = NA))) 
+
+Fig
+
+
+```
+
+```{r corr of feature weights bw original MM models and covars from behaviour models}
+hcpep   <- read.table(here('./output/accuracy/MM/hcpep_haufe_cogPC.txt'))
+tcp     <- read.table(here('./output/accuracy/MM/tcp_haufe_cogPC.txt'))
+cnp     <- read.table(here('./output/accuracy/MM/cnp_haufe_cogPC.txt'))
+cov     <- cbind(hcpep, tcp, cnp*-1)
+
+colnames(cov)   <- c("HCP-EP", "TCP", "CNP")
+
+hcpep2  <- read.table(here('./output/accuracy/MM/hcpep_haufe_cogPC_ASFd.txt'))
+tcp2    <- read.table(here('./output/accuracy/MM/tcp_haufe_cogPC_ASFd.txt'))
+cnp2    <- read.table(here('./output/accuracy/MM/cnp_haufe_cogPC_ASFd.txt'))
+cov2    <- cbind(hcpep2, tcp2, cnp2*-1)
+
+
+colnames(cov2)  <- c("HCP-EP2", "TCP2", "CNP2")
+df              <- cbind(cov, cov2)
+
+obs_r <- diag(cor(cov, cov2))
+
+lab.size = 15
+title.size = 18
+line.thickness = 1
+
+theme_custom <- theme(legend.position  = "none", 
+                      axis.text.y      = element_text(size=lab.size,colour = "black"),
+                      axis.title.y     = element_text(size=title.size,colour = "black"),
+                      axis.text.x      = element_text(size=lab.size,colour = "black"),
+                      axis.title.x     = element_text(size=title.size,colour = "black"),
+                      axis.line        = element_line(colour = "black", size = line.thickness),
+                      panel.grid.major = element_blank(),
+                      panel.grid.minor = element_blank(),
+                      panel.background = element_blank())
+
+annotate_npc <- function(label, x, y, size, ...) {
+  ggplot2::annotation_custom(grid::textGrob(
+    x = unit(x, "npc"), y = unit(y, "npc"), label = label, gp = gpar(fontsize = size),...,))
+}
+
+p1 <- ggplot(df, aes(`HCP-EP`, `HCP-EP2`)) +
+  geom_hex(bins=50) +
+  geom_smooth(method='lm',colour = "black") +
+  scale_fill_gradientn(colours = brewer.reds(100))  +
+  theme_custom + 
+  scale_y_continuous(labels = number_format(accuracy = 0.01)) + 
+  scale_x_continuous(labels = number_format(accuracy = 0.01))  + 
+  annotate_npc(paste0("R = ", round(obs_r[1],3),"; p < .001" ),
+               x =  0.7, y = 0.05, size=15) +
+  xlab("Original Model Features") + 
+  ylab("Covariate-adjusted Model Features")
+
+p2 <- ggplot(df, aes(`TCP`, `TCP2`)) +
+  geom_hex(bins=50) +
+  geom_smooth(method='lm',colour = "black") +
+  scale_fill_gradientn(colours = brewer.reds(100))  +
+  theme_custom + 
+  scale_y_continuous(labels = number_format(accuracy = 0.01)) + 
+  scale_x_continuous(labels = number_format(accuracy = 0.01)) +
+  annotate_npc(paste0("R = ", round(obs_r[2],3),"; p < .001" ),
+               x =  0.7, y = 0.05, size=15)+
+  xlab("Original Model Features") + 
+  ylab("Covariate-adjusted Model Features")
+
+p3 <- ggplot(df, aes(`CNP`, `CNP2`)) +
+  geom_hex(bins=50) +
+  geom_smooth(method='lm',colour = "black") +
+  scale_fill_gradientn(colours = brewer.reds(100))  +
+  theme_custom + 
+  scale_y_continuous(labels = number_format(accuracy = 0.01)) + 
+  scale_x_continuous(labels = number_format(accuracy = 0.01)) +
+  annotate_npc(paste0("R = ", round(obs_r[3],3),"; p < .001" ),
+               x =  0.7, y = 0.05, size=15)+
+  xlab("Original Model Features") + 
+  ylab("Covariate-adjusted Model Features") + 
+  theme(legend.position = "right")
+
+
+p <- p1 | p2 | p3
+p
+
+
+```
+
+```{r haufe transformed feature weights for 67 UKB phenotypes after removving age, sex and genePC}
+hcp_ep <- fread(here('./output/accuracy/MM/hcpep_haufe67pheno_cogPC_GSR_NoGeneAgeSex_PC.txt'), sep = " ")
+
+tcp    <- fread(here('./output/accuracy/MM/tcp_haufe67pheno_cogPC_GSR_NoGeneAgeSex_PC.txt'), sep = " ")
+
+cnp    <- fread(here('./output/accuracy/MM/cnp_haufe67pheno_cogPC_GSR_NoGeneAgeSex_PC.txt'), sep = " ")
+cov <- cbind(hcp_ep, tcp, cnp*-1)
+
+# correlation bw 67 DNN feature weights
+cor(cov)
+
+#order of 67 phenotypes
+vars <- fread(here('data/atlas/67_MM_phenos_order.txt'),  fill=TRUE)
+vars <- paste0(vars$V1,vars$V2,vars$V3)
+
+vars <- vars[-c(16,18,25)] #remove gene PC, Age, Sexname
+
+row.names(cov) <- vars
+cov <- cbind(vars,cov)
+
+#cov[,2:4] <- as.data.table(scale(cov[,2:4]))
+
+colnames(cov) <- c("var", "HCPEP", "TCP", "CNP")
+
+#order by variable
+ranks <- data.frame(rank(cov$HCPEP),rank(cov$TCP),rank(cov$CNP))
+ranks  <- rowMeans(ranks)
+ranks <- rank(ranks)
+
+cov <- cov[order(ranks),]
+
+#rwll ggplot that we have a ordered factor so dont rearrange
+cov$var <- factor(cov$var, levels = cov$var)
+
+p1 <- ggplot(cov, aes(x=var, y=HCPEP, colour=HCPEP)) +
+  geom_segment( aes(x=var, xend=var, y=0, yend=HCPEP), color="grey") +
+  geom_point( size=4) +
+  theme_light() +
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.border = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position="none",
+    plot.title = element_text(hjust = 0.55)) +
+  xlab("") +
+  ylab("Feature Weights") + 
+  coord_flip() + 
+  geom_hline(lty = 2, yintercept = 0) +
+  scale_color_gradient2(midpoint=0, low="blue", mid="white",
+                        high="red", space ="Lab" ) + 
+  ggtitle("HCPEP")
+
+
+p2 <- ggplot(cov, aes(x=var, y=TCP, colour=TCP)) +
+  geom_segment( aes(x=var, xend=var, y=0, yend=TCP), color="grey") +
+  geom_point(size=4) +
+  theme_light() +
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.border = element_blank(),
+    axis.ticks.x = element_blank()
+  ) +
+  xlab("") +
+  ylab("Feature Weights") + 
+  theme(axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        legend.position="none",
+        plot.title = element_text(hjust = 0.55)) +
+  coord_flip()+ 
+  geom_hline(lty = 2, yintercept = 0) +
+  scale_color_gradient2(midpoint=0, low="blue", mid="white",
+                        high="red", space ="Lab" ) + 
+  ggtitle("TCP")
+
+p3 <- ggplot(cov, aes(x=var, y=CNP, colour=CNP)) +
+  geom_segment( aes(x=var, xend=var, y=0, yend=CNP), color="grey") +
+  geom_point(size=4) +
+  theme_light() +
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.border = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position="none") +
+  xlab("") +
+  ylab("Feature Weights") + 
+  theme(axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        plot.title = element_text(hjust = 0.55)) +
+  coord_flip()+ 
+  geom_hline(lty = 2, yintercept = 0) +
+  scale_color_gradient2(midpoint=0, low="blue", mid="white",
+                        high="red", space ="Lab" ) + 
+  ggtitle("CNP")
+
+
+p1 | p2 | p3
+```
+
+```{r accuracy of MM models after removing gene PC, age and sex from the stacking part}
+#Load data
+
+hcpep_mm        <- read.table(here('./output/accuracy/MM/hcpep_pearsonr_cogPC_GSR_NoGeneAgeSex_PC.txt'))[-1]
+hcpep_krr       <- read.table(here('./output/accuracy/KRR/hcpep_pearsonr_cogPC_GSR_NoGeneAgeSex_PC.txt'))[-1]
+
+tcp_mm          <- read.table(here('./output/accuracy/MM/tcp_pearsonr_cogPC_GSR_NoGeneAgeSex_PC.txt'))[-1]
+tcp_krr         <- read.table(here('./output/accuracy/KRR/tcp_pearsonr_cogPC_GSR_NoGeneAgeSex_PC.txt'))[-1]
+
+cnp_mm          <- read.table(here('./output/accuracy/MM/cnp_pearsonr_cogPC_GSR_NoGeneAgeSex_PC.txt'))[-1]
+cnp_krr         <- read.table(here('./output/accuracy/KRR/cnp_pearsonr_cogPC_GSR_NoGeneAgeSex_PC.txt'))[-1]
+
+
+mean(as.numeric(unlist(hcpep_mm)))
+mean(as.numeric(unlist(tcp_mm)))
+mean(as.numeric(unlist(cnp_mm)))
+
+hcpep_mm            <- as.data.frame(cbind(t(hcpep_mm), rep("hcpep",100),rep("MM",100)))
+hcpep_krr           <- as.data.frame(cbind(t(hcpep_krr), rep("hcpep",100),rep("KRR",100)))
+tcp_mm              <- as.data.frame(cbind(t(tcp_mm), rep("tcp",100),rep("MM",100)))
+tcp_krr             <- as.data.frame(cbind(t(tcp_krr), rep("tcp",100),rep("KRR",100)))
+cnp_mm              <- as.data.frame(cbind(t(cnp_mm), rep("cnp",100),rep("MM",100)))
+cnp_krr             <- as.data.frame(cbind(t(cnp_krr), rep("cnp",100),rep("KRR",100)))
+colnames(hcpep_mm)  <- colnames(hcpep_krr) <- colnames(tcp_mm) <- 
+  colnames(tcp_krr) <- colnames(cnp_mm) <- colnames(cnp_krr) <- c("Accuracy","Dataset", "Model")
+
+#put all data frames into list
+df_list <- list(hcpep_mm, hcpep_krr, tcp_mm, tcp_krr, cnp_mm, cnp_krr)
+#merge all data frames in list
+data          <- Reduce(function(x, y) merge(x, y, all=TRUE), df_list)
+data$dataset  <- as.factor(data$Dataset)
+data$model    <- as.factor(data$Model)
+data$accuracy <- as.numeric(data$Accuracy)
+
+
+lab.size = 22
+title.size = 24
+line.thickness = 0.6
+
+# *** <.00001, ** <.001 * <.05
+ggplot(data, aes(x = dataset, y = accuracy, fill = model)) +	
+  introdataviz::geom_split_violin(alpha = .3, trim = F, width = 0.8, colour = NA) + 
+  geom_boxplot(width = .2, alpha = 0.4, fatten = T, show.legend = FALSE,outlier.shape = NA, coef=1) +
+  stat_summary(fun="mean", geom="point", size=2,
+               position=position_dodge(width=0.2), color="black") +
+  scale_x_discrete(name = "Dataset", labels = c("HCP-EP", "TCP", "CNP")) + 
+  ylab("Accuracy") +
+  scale_fill_brewer(palette = "Set1", name = "Model") + 
+  annotate("text", x = 1.1, y = 0.78,  size = 6,
+           alpha = 1, 
+           colour = "#377EB8", label = "***") + 
+  annotate("text", x = 2.1, y = 0.78,  size = 6,
+           alpha = 1, 
+           colour = "#377EB8", label = "*") + 
+  annotate("text", x = 3.1, y = 0.78,  size = 6,
+           alpha = 1, 
+           colour = "#377EB8", label = "**") + 
+  annotate("text", x = 1.05-0.2, y = 0.78,  size = 6,
+           alpha = 1, 
+           colour = "#EF828B", label = "**") + 
+  annotate("text", x = 2.05-0.2, y = 0.78,  size = 4,
+           alpha =1, 
+           colour = "#EF828B", label = "ns") + 
+  annotate("text", x = 3.05-0.2, y = 0.78,  size = 6,
+           alpha = 1, 
+           colour = "#EF828B", label = "**") + 
+  scale_y_continuous(breaks=seq(-0.45,0.85,0.2), labels = number_format(accuracy = 0.01)) + 
+  coord_cartesian(ylim = c(-0.45,0.85), expand=c(0,0)) +
+  theme(axis.text.y=element_text(size=lab.size, colour = "black"),
+        axis.title.y =element_text(size=title.size, colour = "black"),
+        axis.text.x=element_text(size=lab.size, colour = "black",hjust = 0.4),
+        axis.title.x =element_text(size=title.size, colour = "black"),
+        axis.line = element_line(colour = "black", size = line.thickness),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        legend.text=element_text(size=lab.size-2, colour = "black"),
+        legend.title=element_text(size=title.size-2, colour = "black")) + 
+  guides(fill = guide_legend(override.aes = list(shape = NA))) 
+
+
+```
+
+
+
