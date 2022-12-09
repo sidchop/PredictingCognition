@@ -4,7 +4,7 @@
 .Rhistory
 .RData
 .Ruserdata
-data/
+data/*
 !data/atlas
 # #data files (release final processed data for TCP and CNP)
 # #HCPEP

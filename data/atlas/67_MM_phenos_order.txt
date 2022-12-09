@@ -1,0 +1,67 @@
+Alcohol 1
+Alcohol 2
+Alcohol 3
+Time walk
+Time drive
+Time TV
+Sleep
+Age edu
+Work
+Travel
+#household
+Neuro
+Hearing
+Fluid Int.
+Matching
+Sex
+Matching-o
+Age
+Trail-o C1
+Trail-o C3
+Digit-o C1
+Digit-o C6
+Sex G C1
+Sex G C2
+Genetic C1
+Cancer C1
+Urine C1
+Blood C2
+Blood C3
+Blood C4
+Blood C5
+Deprive C1
+Dur C1
+Dur C2
+Dur C4
+Trail C1
+Tower C1
+Digit 1
+Match
+ProMem C1
+#Mem C1
+Matrix C1
+Matrix C2
+Matrix C3
+Illness C1
+Illness C4
+Loc C1
+Breath C1
+Grip C1
+ECG C1
+ECG C2
+ECG C3
+ECG C6
+Carotid C1
+Carotid C5
+Bone C1
+Bone C3
+Body C1
+Body C2
+Body C3
+BP eye C2
+BP eye C3
+BP eye C4
+BP eye C5
+BP eye C6
+Family C1
+Smoke C1
