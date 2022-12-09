@@ -40,7 +40,7 @@ source(here("./scripts/visualisation/functions/makeNetworkMatrix2.R"))
 
 Main text figures. 
 
-```{r Fig1A atlas legend , eval=FALSE}
+```{r Fig1A atlas legend, eval=FALSE}
 ciftiTools.setOption("wb_path", "/Applications/workbench/")
 schaefer400_n17 <- read_xifti(here('./data/atlas/Schaefer2018_400Parcels_17Networks_order.dlabel.nii'))
 
@@ -76,6 +76,8 @@ Fig1A           <- image_append(c(cortex, subcortex))
 
 Fig1A
 ```
+
+
 
 ```{r Fig1B accuracy box plot data prep}
 #Load data
@@ -118,27 +120,6 @@ data$Model    <- as.factor(data$Model)
 data$Accuracy <- as.numeric(data$Accuracy)
 ```
 
-```{r Fig1B accuracy box plot sig tests}
-is.sig     <- function(obs_vec=NULL, null_vec=NULL) {
-  obs_vec  <- as.numeric(unlist(obs_vec))
-  null_vec <- as.numeric(unlist(null_vec))
-  return(1-sum(mean(obs_vec)>null_vec)/length(null_vec))
-}
-
-obs_list   <- list(hcpep_mm, hcpep_krr, tcp_mm, tcp_krr, cnp_mm, cnp_krr)
-null_list  <- list(hcpep_mm_nulls, hcpep_krr_nulls, tcp_mm_nulls, tcp_krr_nulls, cnp_mm_nulls, cnp_krr_nulls)
-
-for(p in 1:length(obs_list)) {
-  message(is.sig(obs_list[[p]]$Accuracy, null_vec = null_list[[p]]))
-}
-
-#difference b/w krr and mm uding paired t-test
-#https://machinelearningmastery.com/statistical-significance-tests-for-comparing-machine-learning-algorithms/
-t.test(as.numeric(unlist(hcpep_mm$Accuracy)),unlist(as.numeric(hcpep_krr$Accuracy,paired=TRUE)))
-t.test(as.numeric(unlist(tcp_mm$Accuracy)),unlist(as.numeric(tcp_krr$Accuracy,paired=TRUE)))
-t.test(as.numeric(unlist(cnp_mm$Accuracy)),unlist(as.numeric(cnp_krr$Accuracy,paired=TRUE)))
-
-```
 
 ```{r Fig1B accuracy box plot}
 lab.size = 22
@@ -231,14 +212,6 @@ row.names(genmat) <- colnames(genmat) <- c("HCPEP", "TCP", "CNP")
 
 #load nulls
 mm_gen_nulls <- read.table(here('./output/generalizability/nulls/mm_test_train_nulls.csv'))
-
-#train test
-obs_r_mm <- c(0.334, 0.394,0.210,0.351,0.332, 0.361)
-
-for (p in 1:length(obs_r_mm)) {
-  p_val <- 1 - sum(obs_r_mm[p] >= mm_gen_nulls[,p]) /length(mm_gen_nulls[,p])
-  print(p_val)
-}
 
 # The below doesn't always save the .eps when run in a code chunk,
 # but will work fine if pasted into console
