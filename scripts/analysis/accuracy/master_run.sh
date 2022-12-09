@@ -9,10 +9,10 @@ path_repo=/Users/sidchopra/Dropbox/Sid/python_files/PredictingCognition/
 # Meta-matching Models
 # Primary models
 
-#for s in {0..2} ; do python ${path_repo}/scripts/analysis/accuracy/compute_MM_cognitionPC.py ${s} False ; done
+for s in {0..2} ; do python ${path_repo}/scripts/analysis/accuracy/compute_MM_cognitionPC.py ${s} False ; done
 
 # Covar models
-#for s in {0..2} ; do python ${path_repo}/scripts/analysis/accuracy/compute_MM_cognitionPC.py ${s} True  ; done
+for s in {0..2} ; do python ${path_repo}/scripts/analysis/accuracy/compute_MM_cognitionPC.py ${s} True  ; done
 
 # KRR Models
 # Primary models

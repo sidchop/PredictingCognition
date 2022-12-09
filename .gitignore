@@ -5,6 +5,7 @@
 .RData
 .Ruserdata
 data/*
+
 !data/atlas
 # #data files (release final processed data for TCP and CNP)
 # #HCPEP
@@ -42,9 +43,10 @@ output/accuracy/MM/nulls/cnp_haufe_cogPC_GSR_nulls.txt
 
 # Large figure vector files
 output/figures/Illustrator/
-scripts/visualisation/figures.pptx
+*.pptx
 
 # data prep/raw data
 scripts/data_prep
 .httr-oauth
 .DS_Store
+README.Rmd
