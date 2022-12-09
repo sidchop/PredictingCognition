@@ -1,4 +1,4 @@
-#compute significant FDR corrected PNF blocks for each data set
+#compute significant FDR corrected PNF blocks for each data set (fix link using Here::here())
 
 #Observerd mean PNF values by network block
 atlas_labs <- readxl::read_xlsx("/Users/sidchopra/Dropbox/Sid/python_files/metamatching/data/atlas/atlas_labels.xlsx", sheet = 1)
@@ -11,13 +11,12 @@ ucla <- fread("/Users/sidchopra/Dropbox/Sid/python_files/metamatching/output/MM_
 obs_pnf_list <- cbind(hcp_ep, pc, ucla*-1)
 colname <- c("hcp-ep", "pc", "ucla")
 n=18 #number of networks
-#perms=2000 #number of perms
 
 obs_pnf_mat <- matrix(nrow = n*(n+1)/2, ncol = length(colname))
-#obs_pnf_mat_pos <- obs_pnf_mat_neg  <-
-#  matrix(nrow = n*(n+1)/2, ncol = length(colname))
 obs_roi_mat_pos <-  obs_roi_mat_neg <- matrix(nrow = 419, ncol = length(colname))
+
 source("~/Dropbox/Sid/R_files/functions/smooth_matrix.R")
+
 for (s in 1:ncol(obs_pnf_list)) {
   mat <- matrix(nrow = 419, ncol = 419)
   mat[upper.tri(mat)] <- as.matrix(obs_pnf_list[, ..s])
@@ -29,18 +28,6 @@ for (s in 1:ncol(obs_pnf_list)) {
   mat_neg[mat_neg > 0] <- 0
   obs_roi_mat_pos[,s] <- rowMeans(mat_pos)
   obs_roi_mat_neg[,s] <- rowMeans(mat_neg)
-  #split by pos and neg
-  
-  #smooth_mat_pos <- smooth_matrix(mat = mat_pos, 
-  #                            row.cluster = atlas_labs$Network,
-  #                            col.cluster = atlas_labs$Network,
-  #                            return.full.matrix = F)
-  # smooth_mat_neg <- smooth_matrix(mat = mat_neg, 
-  #                                 row.cluster = atlas_labs$Network,
-  #                                 col.cluster = atlas_labs$Network,
-  #                                 return.full.matrix = F)
-  #obs_pnf_mat_pos[,s] <- smooth_mat_pos[upper.tri(smooth_mat_pos, diag = T)]
-  #obs_pnf_mat_neg[,s] <- smooth_mat_neg[upper.tri(smooth_mat_neg, diag = T)]
   smooth_mat <- smooth_matrix(mat = mat, 
                               row.cluster = atlas_labs$Network,
                               col.cluster = atlas_labs$Network,
@@ -51,7 +38,6 @@ for (s in 1:ncol(obs_pnf_list)) {
 
 
 #For each dataset, convert each null pnf vec into mat, compute network block means and the row means (for ROI)
-
 extraxt_null_pnf <- function(x) {
   mat <- matrix(nrow = 419, ncol = 419)
   mat[upper.tri(mat)] <- as.matrix(x)
@@ -148,21 +134,6 @@ for (l in 1:length(null_pnf_out_list)) {
   p_mat_fdr[,l] <- p.adjust(p_mat[,l], method = "fdr")
 }
 
-
-##compute fwe corrected pvals (joint dist)
-#p_mat_fwe <- matrix(nrow=nrow(null_pnf_out_list[[1]]), ncol=length(null_pnf_out_list))
-#for (l in 1:length(null_pnf_out_list)) {
-#  p_vec <- NULL
-#  colMax <- function(X) apply(X, 2, max)
-#  abs_max_beta <- colMax(abs(null_pnf_out_list[[1]]))
-#  hist(abs_max_beta)
-#  for (p in 1:nrow(null_pnf_out_list[[1]])) {
-#    p_mat_fwe[p,l] <- 1 - sum(abs(obs_pnf_mat[p,l]) >= abs(  abs_max_beta)) / length( abs_max_beta)
-#  }
-#}
-
-
-
 #convert into binary matricies of sig values. 
 fdr_corrected_pvals <- list()
 for (f in 1:3) {
@@ -179,7 +150,6 @@ for (f in 1:3) {
   pvals[[f]] <- as.matrix(Matrix::forceSymmetric(mat))
 }
 saveRDS(object = fdr_corrected_pvals, file = "~/Dropbox/Sid/python_files/metamatching/output/MM_stacking/nulls/17Network_mean_PNF_uncor_pvals.RDS")
-
 
 
 ### sig test ROI level features
@@ -240,52 +210,49 @@ saveRDS(object = p_mat, file = "~/Dropbox/Sid/python_files/metamatching/output/M
 
 
 
-
-
-
-# NBS attempt ====
-#OBS  max comp size
-source("~/Dropbox/Sid/R_files/functions/get_components.R")
-primary_thresh = 0.05
-max_comp_vec = NULL
-for (s in 1:ncol(obs_pnf_list)) {
-  mat <- matrix(nrow = 419, ncol = 419)
-  mat[upper.tri(mat)] <- scale(as.matrix(obs_pnf_list[, ..s]))
-  mat <- as.matrix(Matrix::forceSymmetric(mat, uplo = "U"))
-  diag(mat) <- 0
-  mat <- mat[atlas_labs$reorder, atlas_labs$reorder]
-  p_mat =   (1-pnorm(abs(mat)))*2
-  p_mat[p_mat>primary_thresh] <- 0
-  p_mat[p_mat!=0] <- 1
-  max_comp_vec[s] <- get_components(p_mat,return_max = T, return_comp = F)
-}
-
-#null comps
-extraxt_null_comp <- function(x, primary_thresh=0.001) {
-  mat <- matrix(nrow = 419, ncol = 419)
-  mat[upper.tri(mat)] <- scale(as.matrix(x))
-  mat <- as.matrix(Matrix::forceSymmetric(mat, uplo = "U"))
-  diag(mat) <- 0
-  mat <- mat[atlas_labs$reorder, atlas_labs$reorder]
-  mat <- mat[atlas_labs$reorder, atlas_labs$reorder]
-  p_mat =   (1-pnorm(abs(mat)))*2
-  p_mat[p_mat>primary_thresh] <- 0
-  p_mat[p_mat!=0] <- 1
-  max_comp <- get_components(p_mat,return_max = T, return_comp = F)
-  return(max_comp)
-}
-
-library(parallel)
-library(pbapply)
-cl <- makeCluster(8)
-clusterExport(cl, c("extraxt_null_comp", "atlas_labs", "get_components"))
-
-#~5 mins per data set (convert to matrix and extract max comp)
-pc_null_comp <- pbapply(pc_null_pnf, 2,
-                        extraxt_null_comp, 
-                        primary_thresh=0.05,
-                        simplify = T, cl = cl)
-stopCluster(cl)
-
-sum(max_comp_vec[2] < pc_null_comp)/2000
+## NBS attempt ==== 
+##OBS  max comp size
+#source("~/Dropbox/Sid/R_files/functions/get_components.R")
+#primary_thresh = 0.05
+#max_comp_vec = NULL
+#for (s in 1:ncol(obs_pnf_list)) {
+#  mat <- matrix(nrow = 419, ncol = 419)
+#  mat[upper.tri(mat)] <- scale(as.matrix(obs_pnf_list[, ..s]))
+#  mat <- as.matrix(Matrix::forceSymmetric(mat, uplo = "U"))
+#  diag(mat) <- 0
+#  mat <- mat[atlas_labs$reorder, atlas_labs$reorder]
+#  p_mat =   (1-pnorm(abs(mat)))*2
+#  p_mat[p_mat>primary_thresh] <- 0
+#  p_mat[p_mat!=0] <- 1
+#  max_comp_vec[s] <- get_components(p_mat,return_max = T, return_comp = F)
+#}
+#
+##null comps
+#extraxt_null_comp <- function(x, primary_thresh=0.001) {
+#  mat <- matrix(nrow = 419, ncol = 419)
+#  mat[upper.tri(mat)] <- scale(as.matrix(x))
+#  mat <- as.matrix(Matrix::forceSymmetric(mat, uplo = "U"))
+#  diag(mat) <- 0
+#  mat <- mat[atlas_labs$reorder, atlas_labs$reorder]
+#  mat <- mat[atlas_labs$reorder, atlas_labs$reorder]
+#  p_mat =   (1-pnorm(abs(mat)))*2
+#  p_mat[p_mat>primary_thresh] <- 0
+#  p_mat[p_mat!=0] <- 1
+#  max_comp <- get_components(p_mat,return_max = T, return_comp = F)
+#  return(max_comp)
+#}
+#
+#library(parallel)
+#library(pbapply)
+#cl <- makeCluster(8)
+#clusterExport(cl, c("extraxt_null_comp", "atlas_labs", "get_components"))
+#
+##~5 mins per data set (convert to matrix and extract max comp)
+#pc_null_comp <- pbapply(pc_null_pnf, 2,
+#                        extraxt_null_comp, 
+#                        primary_thresh=0.05,
+#                        simplify = T, cl = cl)
+#stopCluster(cl)
+#
+#sum(max_comp_vec[2] < pc_null_comp)/2000
 
