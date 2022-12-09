@@ -44,13 +44,12 @@ The `scripts` folder contains the two folders: `analysis` and
   environment file used for all analyses
   (`predictingCognition_env.yml`):
   - `accuracy` - contains python scripts that execute both meta-matching
-    ([`compute_MM_cognitionPC.py`](https://github.com/sidchop/PredictingCognition/blob/master/scripts/analysis/accuracy/compute_MM_cognitionPC.py)
-    and kernel ridge regression models
-    ([`compute_KRR_cognitionPC.py`](https://github.com/sidchop/PredictingCognition/blob/master/scripts/analysis/accuracy/compute_KRR_cognitionPC.py).
-    The `master_run.sh` script executes all python scripts with flags to
-    indicating study sample and covariate regression. The `nulls_runHPC`
-    folder contains scripts used to generate null prediction models and
-    were executed on a High performance computing cluster.
+    (`compute_MM_cognitionPC.py` and kernel ridge regression models
+    (`compute_KRR_cognitionPC.py`). The `master_run.sh` script executes
+    all python scripts with flags to indicating study sample and
+    covariate regression. The `nulls_runHPC` folder contains scripts
+    used to generate null prediction models and were executed on a High
+    performance computing cluster.
   - `genralizibility` - contains two python scripts used to test the
     genralizibility of the meta-matching (`mm_cogs_generalize.py`) and
     kernel ridge regression (\``krr_cogs_generalize.py`\`) models
@@ -65,7 +64,7 @@ The `scripts` folder contains the two folders: `analysis` and
   renderings in Fig4 require a python env with both `pyvista` and
   `pysurfer` working smoothly (good luck!) Some examples below.
 
-<img src="output/figures/vector_files/readme.png" width="80%" />
+<img src="output/figures/vector_files/readme.png" style="display: block; margin: auto;" />
 
 ------------------------------------------------------------------------
 
@@ -99,9 +98,7 @@ see: <https://github.com/ThomasYeoLab/Meta_matching_models>
 
 You will need functional coupling/connectivity FC) data and a phenotype
 you want to predict. The FC data will need to be extracted using the 419
-region atlas defined in the link above. V1.1 of the model can be used on
-data that has been global signal regressed (GSR) and z-scored and v1.0
-can be used with non-GSR data.
+region atlas defined in the link above (also see `data/atlas` folder.
 
 **Note:** The meta-matching model use in the current analysis was run
 using data with GSR and z-scoring, so a version of the V1.1 was used.
