@@ -1,0 +1,50 @@
+.Rproj.user
+*.Rproj
+.Rbuildignore
+.Rhistory
+.RData
+.Ruserdata
+data/
+!data/atlas
+# #data files (release final processed data for TCP and CNP)
+# #HCPEP
+# data/HCPEP/*
+# !data/HCPEP/README.txx
+# 
+# #TCP
+# data/TCP/behaviour/*
+# !data/TCP/behaviour/pheno_cog_PC_n101.txt
+# data/TCP/brain/*
+# !data/TCP/brain/FC_mean_matched_n101_GSR.txt
+# 
+# #CNP
+# data/CNP/behaviour/*
+# !data/CNP/behaviour/pheno_cog_PC_n256.txt
+# data/CNP/brain/*
+# !data/CNP/brain/FC_n256_matched_GSR.txt'
+
+# Metamatching model (contains data from people who rescinded consent from UKBB)
+Meta_matching_models/
+
+# other
+other/
+
+# old
+output/accuracy/KRR/old/
+output/accuracy/MM/old/
+output/generalizability/old/
+
+# Large files excluded from git
+data/atlas/schaefer400_17_vasa_10000spins.csv
+output/accuracy/MM/nulls/hcpep_haufe_cogPC_GSR_nulls.txt
+output/accuracy/MM/nulls/tcp_haufe_cogPC_GSR_nulls.txt
+output/accuracy/MM/nulls/cnp_haufe_cogPC_GSR_nulls.txt
+
+# Large figure vector files
+output/figures/Illustrator/
+scripts/visualisation/figures.pptx
+
+# data prep/raw data
+scripts/data_prep
+.httr-oauth
+.DS_Store
