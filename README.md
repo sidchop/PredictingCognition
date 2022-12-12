@@ -62,7 +62,7 @@ The `scripts` folder contains the two folders: `analysis` and
   used to generate each main test and supplementary figure included in
   the paper. Each code chunk corresponds to a figure or panel. The brain
   renderings in Fig4 require a python env with both `pyvista` and
-  `pysurfer` working smoothly (good luck!) Some examples below.
+  `pysurfer` working smoothly (good luck!) Some examples below:
 
 <img src="output/figures/vector_files/readme.png" style="display: block; margin: auto;" />
 
@@ -80,10 +80,10 @@ The `scripts` folder contains the two folders: `analysis` and
   - Consortium for Neuropsychiatric Phenomics (CNP; n=224)
 
 - FC matrices and cognitive functioning principal component scores for
-  TCP and CNP can be shared openly. These files are \>100mb and will
-  soon be uploaded here. The HCP-EP data requires data access permission
-  and if you have this, we are happy to share the processed data used
-  here.
+  TCP and CNP can likely shared openly. These files are \>100mb and once
+  I have approval I will uploaded here. The HCP-EP data requires data
+  access permission and if you have this, we are happy to share the
+  processed data used here.
 
 - All model outputs used in the paper and to generate all figures are
   provided in `output` folder. We will soon are a more detailed
