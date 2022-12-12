@@ -9,7 +9,8 @@ Chen, P., Wulan, N., Kumar, P., Rubenstein. A., Moses, J., Chen, L.,
 Levi, P., Aquino, K., Fornito, A., Harpaz-Rotem, I., Germine, L., Baker,
 J., Yeo, BT., Holmes, A. (2022) [Reliable and generalizable brain-based
 predictions of cognitive functioning across common psychiatric
-illness](https://www.medrxiv.org/). medRxiv.
+illness](https://www.medrxiv.org/content/10.1101/2022.12.08.22283232v1).
+medRxiv.
 
 ------------------------------------------------------------------------
 
