@@ -50,3 +50,4 @@ scripts/data_prep
 .httr-oauth
 .DS_Store
 README.Rmd
+compute_MM_cognitionPC_noGene.py
