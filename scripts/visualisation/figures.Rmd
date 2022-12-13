@@ -732,7 +732,8 @@ compare_cor <- \(a,b) {
                               alternative="two.sided", 
                               alpha=0.05, 
                               conf.level=0.95, 
-                              null.value=0, test = 'raghunathan1996')}
+                              null.value=0, test = 'raghunathan1996')
+  }
 
 
 compare_cor(a=1,b=2)
