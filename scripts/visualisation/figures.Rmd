@@ -135,7 +135,7 @@ bracketsGrob <- function(...){
   }, e)
 }
 
-# note that units here are "npc", the only unit (besides physical units) that makes sensewhen annotating the plot panel in ggplot2 (since we have no access to native units)
+# note that units here are "npc", the only unit (besides physical units) that makes sense when annotating the plot panel in ggplot2 (since we have no access to native units)
 b1 <- bracketsGrob(0.24, 0.1, 0.04, 0.1, h=0.04, lwd=2, col="black")
 b2 <- bracketsGrob(.6, 0.1, 0.4, 0.1, h=0.04,  lwd=2, col="black")
 b3 <- bracketsGrob(.955, 0.1, 0.755, 0.1, h=0.04,  lwd=2, col="black")
