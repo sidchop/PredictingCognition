@@ -50,29 +50,29 @@ The `scripts` folder contains the two folders: `analysis` and
     all python scripts with flags to indicating study sample and
     covariate regression. The `nulls_runHPC` folder contains scripts
     used to generate null prediction models and were executed on a High
-    performance computing cluster.
+    Performance Computing (HPC) cluster.
   - `genralizibility` - contains two python scripts used to test the
     genralizibility of the meta-matching (`mm_cogs_generalize.py`) and
-    kernel ridge regression (\``krr_cogs_generalize.py`\`) models
+    kernel ridge regression (`krr_cogs_generalize.py`) models
     (i.e. train on one full dataset and test on another independent
     dataset).
   - `feature weights` - contains a python script to generate spatially
-    auto-correlated nulls (spin test), and conduct sig testing on the
-    feature weights generated.
+    auto-correlated nulls (spin test), and conduct significance testing
+    on the feature weights generated.
 - The `visualisation` folder contains a Rmarkdown file (`figures.Rmd`)
   used to generate each main test and supplementary figure included in
   the paper. Each code chunk corresponds to a figure or panel. The brain
   renderings in Fig4 require a python env with both `pyvista` and
   `pysurfer` working smoothly (good luck!) Some examples below:
 
-<img src="output/figures/vector_files/readme.png" style="display: block; margin: auto;" />
+<img src="output/figures/vector_files/readme.png" width="2314" style="display: block; margin: auto;" />
 
 ------------------------------------------------------------------------
 
 ### Data
 
-- The primary data using are brain (419 x 419) FC matrices and cognitive
-  functioning principal component scores for three data sets:
+- The primary data used are brain (419 x 419) FC matrices and cognitive
+  functioning scores for three data sets:
 
   - Human Connectome Project - Early Psychosis (HCP-EP; n=145)
 
@@ -80,15 +80,16 @@ The `scripts` folder contains the two folders: `analysis` and
 
   - Consortium for Neuropsychiatric Phenomics (CNP; n=224)
 
-- FC matrices and cognitive functioning principal component scores for
-  TCP and CNP can likely shared openly. These files are \>100mb and once
-  I have approval I will uploaded here. The HCP-EP data requires data
-  access permission and if you have this, we are happy to share the
-  processed data used here.
+- FC matrices and cognitive functioning principal component (PC) scores
+  for TCP and CNP can likely soon be shared openly (pending publication
+  of the TCP dataset release paper). These files are \>100mb and once I
+  have approval I will uploaded here, but please reach out if you would
+  like these, and I will send it through. The HCP-EP data requires data
+  access permission and if you have this, we are happy to share the data
+  used here.
 
-- All model outputs used in the paper and to generate all figures are
-  provided in `output` folder. We will soon are a more detailed
-  description of each file.
+- All model outputs reported in the paper and used to generate all
+  figures are provided in `output` folder.
 
 ------------------------------------------------------------------------
 
@@ -97,12 +98,14 @@ The `scripts` folder contains the two folders: `analysis` and
 If you want to apply the meta-matching model to your own data, please
 see: <https://github.com/ThomasYeoLab/Meta_matching_models>
 
-You will need functional coupling/connectivity FC) data and a phenotype
+You will need functional coupling/connectivity (FC) data and a phenotype
 you want to predict. The FC data will need to be extracted using the 419
-region atlas defined in the link above (also see `data/atlas` folder.
+region atlas defined in the link above (also see `data/atlas` folder for
+a template).
 
 **Note:** The meta-matching model use in the current analysis was run
-using data with GSR and z-scoring, so a version of the V1.1 was used.
+using data with GSR and z-scoring, so a version of the V1.1
+meta-matching model was used.
 
 ------------------------------------------------------------------------
 

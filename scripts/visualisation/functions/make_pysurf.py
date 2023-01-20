@@ -75,9 +75,10 @@ for h in hemis.split():
     """
     brain.add_data(vtx_data, float(args.min), float(args.max), colormap=args.colourmap, transparent = False, colorbar = False) #add  mid for 0 ( mid = 0)middle diverging colourmaps and remove thresh (thresh=0)
     
-    brain.add_annotation(aparc_file,borders=1, alpha=.75, color = 'black')
-    #brain.add_contour_overlay(vtx_data, line_width=2, hemi='rh', colormap = [(0,0,0)])
-    #brain.add_contour_overlay(vtx_data, line_width=2, hemi='lh', colormap = [(0,0,0)])
+    #brain.add_annotation(aparc_file,borders=0, alpha=1, color = 'darkgray')
+    #brain.add_contour_overlay(vtx_data, line_width=1, hemi='rh', colormap = [(0,0,0)])
+    #brain.add_contour_overlay(vtx_data, line_width=1, hemi='lh', colormap = [(0,0,0)])
+    
     #change view
     brain.save_imageset(os.path.join('/Users/sidchopra/Dropbox/Sid/python_files/PredictingCognition/./scripts/visualisation/temp/'+ hemi), ['med', 'lat'], 'jpg')
 
