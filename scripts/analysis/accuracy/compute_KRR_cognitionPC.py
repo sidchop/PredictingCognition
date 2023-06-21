@@ -18,7 +18,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from scipy.stats import pearsonr, zscore
 from CBIG_model_pytorch import stacking
-from sklearn.metrics import r2_score
+from sklearn.metrics import explained_variance_score, r2_score, mean_squared_error
 seed = 42
 random.seed(seed)
 
@@ -92,7 +92,11 @@ cogpc_hcpep = cogpc_hcpep.to_numpy()
 cogpc_tcp = cogpc_tcp.to_numpy()
 cogpc_cnp = cogpc_cnp.to_numpy()
 
-#store cog and fc and covars data into lists 
+#z-score and store cog and fc and covars data into lists 
+fc_data_hcpep = zscore(fc_data_hcpep, axis=1)
+fc_data_tcp = zscore(fc_data_tcp, axis=1)
+fc_data_cnp= zscore(fc_data_cnp, axis=1)
+
 fc_list = [fc_data_hcpep , fc_data_tcp , fc_data_cnp]
 cog_list = [cogpc_hcpep, cogpc_tcp , cogpc_cnp]
 
@@ -117,11 +121,11 @@ y_input = cog_list[ind]
 pred_phenotypes = np.zeros((y_input.shape))
 corr = np.zeros((y_input.shape[1],splits))
 r2 = np.zeros((y_input.shape[1],splits))
+MSE = np.zeros((y_input.shape[1],splits))
 best_param = np.zeros((y_input.shape[1],splits))
 
 
-#z-score to match MM model input. 
-fc_list = [zscore(fc_data_hcpep) , zscore(fc_data_tcp) , zscore(fc_data_cnp)]
+
     
 #if covars are being regressed then cbind x/y and covars
 if regress_covars == True:
@@ -146,18 +150,21 @@ for k in range(splits):
          y_test_pred, _ , best_param[s,k] = stacking(x_train, x_test, y_train[:,s],  splits=5)
          corr[s,k] = pearsonr(y_test_pred, y_test)[0]
          r2[s,k] = r2_score(y_test, y_test_pred)
+         MSE[s,k] = mean_squared_error(y_test, y_test_pred)
               
 
      print(ind, k)
 
-     kf_pearson_results = corr
-     kf_COD_results = r2
-     kf_best_param_results = best_param
+kf_pearson_results = corr
+kf_COD_results = r2
+kf_best_param_results = best_param
+kf_MSE_results = MSE
 
 varnames = ["PC1"]
 
 kf_pearson_results = pd.concat([pd.DataFrame(varnames), pd.DataFrame(kf_pearson_results)], axis=1)
 kf_COD_results = pd.concat([pd.DataFrame(varnames), pd.DataFrame(kf_COD_results)], axis=1)
+kf_MSE_results = pd.concat([pd.DataFrame(varnames), pd.DataFrame(kf_MSE_results)], axis=1)
 kf_best_param_results = pd.concat([pd.DataFrame(varnames), pd.DataFrame(kf_best_param_results)], axis=1)
 
 output_path = os.path.join(path_repo, 'output/accuracy/KRR/')
@@ -172,6 +179,11 @@ kf_pearson_results.to_csv(str(output_path  + names[ind] + '_' + 'pearsonr_cogPC'
                            header=False)
 
 kf_COD_results.to_csv(str(output_path + names[ind] + '_' + 'COD_cogPC' + typename  + '.txt'), 
+                           sep=' ',
+                           index=False,
+                           header=False)
+
+kf_MSE_results.to_csv(str(output_path + names[ind] + '_' + 'MSE_cogPC' + typename  + '.txt'), 
                            sep=' ',
                            index=False,
                            header=False)
