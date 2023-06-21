@@ -18,7 +18,7 @@ sys.path.append(path_v1)
 
 from scipy.stats import pearsonr, zscore
 from CBIG_model_pytorch import stacking, multi_task_dataset
-from sklearn.metrics import r2_score, mean_squared_error
+from sklearn.metrics import r2_score
 from torch.utils.data import DataLoader
 
 import torch
@@ -43,13 +43,9 @@ fc_data_hcpep = np.loadtxt(os.path.join(path_repo, 'data/HCPEP/brain/FC_n163_GSR
 fc_data_tcp = np.loadtxt(os.path.join(path_repo, 'data/TCP/brain/FC_mean_matched_n101_GSR.txt'))
 
 #CNP (aka UCLA)
-fc_data_cnp = np.loadtxt(os.path.join(path_repo, 'data/CNP/brain/FC_n256_matched_GSR.txt'))
+fc_data_cnp = np.loadtxt(os.path.join(path_repo, 'data/CNP/brain/FC_n256_matched_GSR_noSchz.txt'))
 
 
-# z-score FC values
-fc_data_hcpep = zscore(fc_data_hcpep, axis=1)
-fc_data_tcp = zscore(fc_data_tcp, axis=1)
-fc_data_cnp= zscore(fc_data_cnp, axis=1)
 
 # In[2]:
 # load in global cognitve function scores
@@ -59,7 +55,7 @@ cogpc_hcpep = pd.read_csv(os.path.join(path_repo, 'data/HCPEP/behaviour/pheno_co
 
 cogpc_tcp = pd.read_csv(os.path.join(path_repo, 'data/TCP/behaviour/pheno_cog_PC_n101.txt'), sep=" ")
 
-cogpc_cnp = pd.read_csv(os.path.join(path_repo, 'data/CNP/behaviour/pheno_cog_PC_n256.txt'), sep=" ")
+cogpc_cnp = pd.read_csv(os.path.join(path_repo, 'data/CNP/behaviour/pheno_cog_PC_n256_noSchz.txt'), sep=" ")
 cogpc_cnp['Cog_PC1']  = cogpc_cnp ['Cog_PC1']*-1
 
 
@@ -86,6 +82,9 @@ cogpc_tcp = cogpc_tcp.to_numpy()
 
 
 pheno_list = [cogpc_hcpep, cogpc_tcp, cogpc_cnp]
+fc_data_hcpep = zscore(fc_data_hcpep, axis=1)
+fc_data_tcp = zscore(fc_data_tcp, axis=1)
+fc_data_cnp= zscore(fc_data_cnp, axis=1)
 fc_data_list = [fc_data_hcpep, fc_data_tcp, fc_data_cnp]
 
 
@@ -93,8 +92,6 @@ names = ["hcpep", "tcp", "cnp"]
 
 cor_out = np.empty((3, 3))
 COD_out = np.empty((3, 3))
-MSE_out = np.empty((3, 3))
-
 #observerd 
 for i in range(3):
     for j in range(3):
@@ -150,11 +147,10 @@ for i in range(3):
         
         cor_out[j,i] = pearsonr(y_test[:, 0], y_test_final[:, 0])[0]
         COD_out[j,i] = r2_score(y_test[:, 0], y_test_final[:, 0])
-        MSE_out[j,i] = mean_squared_error(y_test[:, 0], y_test_final[:, 0])
         
         #write out observerd and predicted values for scatter plotting
         obs_pred =  pd.DataFrame(np.c_[y_test[:, 0], y_test_final[:, 0]])
-        obs_pred.to_csv(os.path.join(path_repo, 'output/generalizability/mm_train_'+names[i]+'_test_'+ names[j] + '.csv'), 
+        obs_pred.to_csv(os.path.join(path_repo, 'output/generalizability/mm_train_'+names[i]+'_test_'+ names[j] + '_noSchz.csv'), 
                                    sep=' ',
                                    index=False,
                                    header=False)
@@ -163,8 +159,7 @@ for i in range(3):
         
 #Write out matrix
 
-np.savetxt(os.path.join(path_repo, 'output/generalizability/mm_generalizability_matrix.txt'), cor_out)
-np.savetxt(os.path.join(path_repo, 'output/generalizability/mm_generalizability_matrix_COD.txt'), COD_out)
-np.savetxt(os.path.join(path_repo, 'output/generalizability/mm_generalizability_matrix_MSE.txt'), MSE_out)
+np.savetxt(os.path.join(path_repo, 'output/generalizability/mm_generalizability_matrix_noSchz.txt'), cor_out)
+np.savetxt(os.path.join(path_repo, 'output/generalizability/mm_generalizability_matrix_COD_noSchz.txt'), COD_out)
 
 

@@ -31,6 +31,7 @@ library(parallel)
 library(ggalt)
 library(tidyverse)
 library(ggbreak)
+library(psych)
 source(here("./scripts/visualisation/functions/plot_on_brain_pysurf.R"))
 source(here("./scripts/visualisation/functions/smooth_matrix.R"))
 source(here("./scripts/visualisation/functions/make_chord.R"))
@@ -77,8 +78,6 @@ Fig1A           <- image_append(c(cortex, subcortex))
 Fig1A
 ```
 
-
-
 ```{r Fig1B accuracy box plot data prep}
 #Load data
 hcpep_mm        <- read.table(here('./output/accuracy/MM/hcpep_pearsonr_cogPC.txt'))[-1]
@@ -120,7 +119,6 @@ data$Model    <- as.factor(data$Model)
 data$Accuracy <- as.numeric(data$Accuracy)
 ```
 
-
 ```{r Fig1B accuracy box plot}
 lab.size = 22
 title.size = 24
@@ -142,7 +140,7 @@ b3 <- bracketsGrob(.955, 0.1, 0.755, 0.1, h=0.04,  lwd=2, col="black")
 
 # *** <.00001, ** <.001 * <.05
 Fig1B  <- ggplot(data, aes(x = Dataset, y = Accuracy, fill = Model)) +	
-  # geom_hline(yintercept=c(0), linetype="longdash", colour="lightgray") +
+  geom_hline(yintercept=c(0), linetype="longdash", colour="lightgray") +
   introdataviz::geom_split_violin(alpha = .3, trim = F, width =0.8, colour =NA) + 
   geom_boxplot(width = .2, alpha = 0.4, fatten = T, show.legend = FALSE,outlier.shape = NA, coef=1) +
   stat_summary(fun="mean", geom="point", size=2,
@@ -194,10 +192,19 @@ Fig1B  <- ggplot(data, aes(x = Dataset, y = Accuracy, fill = Model)) +
         legend.title     = element_text(size=title.size-2, colour = "black")) + 
   guides(fill = guide_legend(override.aes = list(shape = NA))) 
 
+t.test(as.numeric(unlist(hcpep_mm$Accuracy)),unlist(as.numeric(hcpep_krr$Accuracy)), paired = T, alternative = "two.sided")
+t.test(as.numeric(unlist(tcp_mm$Accuracy)),unlist(as.numeric(tcp_krr$Accuracy,paired=TRUE)), paired = T,alternative = "two.sided")
+t.test(as.numeric(unlist(cnp_mm$Accuracy)),unlist(as.numeric(cnp_krr$Accuracy,paired=TRUE)), paired = T,alternative = "two.sided")
+
+wilcox.test(as.numeric(unlist(hcpep_mm$Accuracy)),unlist(as.numeric(hcpep_krr$Accuracy, paired=TRUE)),alternative = "two.sided")
+wilcox.test(as.numeric(unlist(tcp_mm$Accuracy)),unlist(as.numeric(tcp_krr$Accuracy, paired=TRUE)),alternative = "two.sided")
+wilcox.test(as.numeric(unlist(cnp_mm$Accuracy)),unlist(as.numeric(cnp_krr$Accuracy, paired=TRUE)),alternative = "two.sided")
+
 Fig1B
 
-ggsave(here('./output/figures/vector_files/1b_boxplot.svg'), 
-       plot = Fig1B, units = "in", width = 9, height = 6)
+
+#ggsave(here('./output/figures/vector_files/1b_boxplot.svg'), 
+#       plot = Fig1B, units = "in", width = 9, height = 6)
 ```
 
 ```{r Fig1C MM genralisibility corrplot }
@@ -212,13 +219,15 @@ row.names(genmat) <- colnames(genmat) <- c("HCPEP", "TCP", "CNP")
 
 #load nulls
 mm_gen_nulls <- read.table(here('./output/generalizability/nulls/mm_test_train_nulls.csv'))
+for (p in 1:ncol(mm_gen_nulls)) {message(quantile(mm_gen_nulls[,p], 1-0.05))}
 
 # The below doesn't always save the .eps when run in a code chunk,
 # but will work fine if pasted into console
-setEPS()
-postscript(here('./output/figures/vector_files/1c_generalizability.eps'), height = 8, width = 8)
 
-par(xpd=TRUE)
+#setEPS()
+#postscript(here('./output/figures/vector_files/1c_generalizability.eps'), height = 8, width = 8)
+
+#par(xpd=TRUE)
 corrplot(genmat, method = "circle",  
          col.lim        = c(0,0.6),
          col            = COL1('OrRd', 100), 
@@ -229,7 +238,7 @@ corrplot(genmat, method = "circle",
          cl.length      = 4, 
          cl.ratio       = 0.4,number.cex = 2,
          addgrid.col    = "black", cl.cex = 2, na.label = " ")
-dev.off()
+#dev.off()
 
 
 ```
@@ -492,8 +501,8 @@ p3 <- ggplot(PNF, aes(`TCP`, `CNP`)) +
 library(patchwork)
 p <- p1 | p2 | p3
 
-ggsave(here('./output/figures/vector_files/3a_edge_scatter.svg'), plot = p,
-       height=4.1, width=13, units = "in")
+#ggsave(here('./output/figures/vector_files/3a_edge_scatter.svg'), plot = p,
+#       height=4.1, width=13, units = "in")
 
 
 ```
@@ -826,8 +835,8 @@ s6 <- make_scatter(pnf_mat_pos, 2,3, xlab="TCP", ylab="CNP", dot.colour="#FB7B5B
 
 sn <- (s4 | s5 | s6)/(s1 | s2 | s3)
 
-ggsave(here('./output/figures/vector_files/3c_network_scatter.svg'), plot = sn,
-       height=8, width=13, units = "in")
+#ggsave(here('./output/figures/vector_files/3c_network_scatter.svg'), plot = sn,
+#       height=8, width=13, units = "in")
 ```
 
 ```{r Fig3A netowrk level feature weight heat plots for each dataset,  fig.width=2.4, fig.height=3}
@@ -852,8 +861,8 @@ make_mean_FC_mat <- function(mat        = NULL,
   atlas_labs <- read.csv(here('./data/atlas/atlas_labels.csv'))
   
   superheat(X = mat,
-            membership.rows         = atlas_labs$Network,
-            membership.cols         = atlas_labs$Network,
+            membership.rows         = atlas_labs$id,
+            membership.cols         = atlas_labs$id,
             left.label.col          =unique(atlas_labs$colour),
             bottom.label.col        =unique(atlas_labs$colour),
             left.label.size         = 0.04,
@@ -954,6 +963,7 @@ fdr_p_mat_bin05 <- list()
 
 for (b in 1:3) { fdr_p_mat_bin05[[b]] <- binmat(fdr_p_mat[[b]], p = 0.05)}
 
+
 for (s in 1:ncol(cov)) {
   mat                 <- matrix(nrow = 419, ncol = 419)
   mat[upper.tri(mat)] <- as.matrix(cov[, ..s])
@@ -970,9 +980,9 @@ for (s in 1:ncol(cov)) {
 #reorder for chord function (ordering hard coded in the make_chord function)
 reorder_chord <- c(17, 14, 15,16, 11, 12,13, 10, 9, 7,8, 5,6, 3,4,1,2,18)
 for (c in 1:3) {
-  svg(paste0(here('./output/figures/vector_files/2b_chord'),c,'.svg'))
-  make_chord(data = PNF_mats_thr[[c]][reorder_chord,reorder_chord], link_colorscale = "bwr")
-  dev.off()
+  #svg(paste0(here('./output/figures/vector_files/2b_chord'),c,'.svg'))
+ make_chord(data = PNF_mats_thr[[c]][reorder_chord,reorder_chord], link_colorscale = "bwr")
+  #dev.off()
 }
 
 fdr_conjunc  <- pmin(fdr_p_mat[[1]],fdr_p_mat[[2]],fdr_p_mat[[3]])
@@ -987,6 +997,17 @@ svg(here('./output/figures/vector_files/2b_chord_legend.svg'))
 make_custom_legend(breaks = seq(-1,1,0.2), hcl_palette = "RdBu",
                    labels=seq(-1,1,0.2),reverse = F)
 dev.off()
+
+#for the lesion analysis, get the network-level upper triangle index for the the implecated network connections:
+# Create an 18 by 18 matrix filled with zeros
+mat <- matrix(0, nrow = 18, ncol = 18)
+
+# Fill the upper triangle and diagonal with values 1 to 171
+mat[upper.tri(mat, diag = TRUE)] <- 1:171
+mat[upper.tri(mat, diag = T)][which(fdr_conjunc[upper.tri(fdr_conjunc, diag = T)]!=0)]
+
+noquote(paste0(mat[upper.tri(mat, diag = T)][which(fdr_p_mat_bin05[[3]][upper.tri(fdr_p_mat_bin05[[3]], diag = T)]!=0)], ','))
+length(mat[upper.tri(mat, diag = T)][which(fdr_p_mat_bin05[[3]][upper.tri(fdr_p_mat_bin05[[3]], diag = T)]!=0)])
 
 ```
 
@@ -1395,7 +1416,7 @@ diag(genmat_mm) <- round(c(mean(as.numeric(unlist(data$Accuracy[data$Dataset=="h
 diag(genmat_krr) <- round(c(mean(as.numeric(unlist(data$Accuracy[data$Dataset=="hcpep" & data$Model=="KRR"]))),
                             mean(as.numeric(unlist(data$Accuracy[data$Dataset=="tcp" & data$Model=="KRR"]))),
                             mean(as.numeric(unlist(data$Accuracy[data$Dataset=="cnp" & data$Model=="KRR"])))),2)
-row.names(genmat) <- colnames(genmat) <- c("HCPEP", "TCP", "CNP")
+row.names(genmat_mm) <- colnames(genmat_mm) <- c("HCPEP", "TCP", "CNP")
 row.names(genmat_krr) <- colnames(genmat_krr) <- c("HCPEP", "TCP", "CNP")
 
 llim <- min(genmat,genmat_krr)
@@ -1407,7 +1428,7 @@ ulim <- max(genmat,genmat_krr)
 #par(xpd=TRUE)
 corrplot(genmat_krr, method = "color",  
          col = rev(COL2('RdYlBu', 100)),
-         col.lim = c(-.55,.25),
+        col.lim = c(-.55,.25),
          addCoef.col = 'black',
          tl.col="black", tl.cex=2.5, 
          tl.srt=45, 
@@ -1425,7 +1446,7 @@ corrplot(genmat_krr, method = "color",
 
 
 corrplot(genmat_mm, method = "color",  
-         col.lim = c(-.55,.25),
+        col.lim = c(-.55,.25),
          col = rev(COL2('RdYlBu', 100)), 
          addCoef.col = 'black',
          tl.col="black", tl.cex=2.5, 
@@ -1698,13 +1719,12 @@ cowplot::plot_grid(b, p1, p2, p3, b, p4, p5, p6, b,
 ```{r comparing MM and krr generalizability using a dumbell plot}
 
 label <- c("TCP-HCPEP", "CNP-HCPEP", "HCPEP-TCP", "CNP-TCP", "HCPEP-CNP", "TCP-CNP")
-mm_gen <- c(0.334, 0.394, 0.210, 0.351, 0.332, 0.361)
-krr_gen <- c(0.299, 0.187, 0.299, 0.329, 0.085, 0.295)
+mm_gen <- c(0.38, 0.52, 0.30, 0.42, 0.40, 0.43)
+krr_gen <- c(0.19, 0.11, 0.18, 0.24, 0.06, 0.25)
 
 diff <- ((mm_gen-krr_gen)/abs(krr_gen))*100
 
-diff[c(1,2,4,5,6)] <- paste0("+",round(abs(diff[c(1,2,4,5,6)])), "%")
-diff[c(3)] <- paste0("-",round(abs(as.numeric(diff[c(3)]))), "%")
+diff[c(1,2,3,4,5,6)] <- paste0("+",round(abs(diff[c(1,2,3,4,5,6)])), "%")
 dumbell_data <- data.frame(label, mm_gen, krr_gen,diff)
 dumbell_data$label<- factor(dumbell_data$label, levels = dumbell_data$label)
 
@@ -1731,8 +1751,8 @@ ggplot() +
         legend.text        = element_text(size=lab.size-2, colour = "black"),
         legend.title       = element_text(size=title.size-2, colour = "black")) +
   xlab("Accuracy") + 
-  ylab("Train-Test pair") + geom_rect(data=dumbell_data, aes(xmin=0.45, xmax=0.50, ymin=-Inf, ymax=Inf), fill="lightgrey") + 
-  geom_text(data=dumbell_data, aes(label=diff, y=label, x=0.475), fontface="bold", size=3, family="Calibri")
+  ylab("Train-Test pair") + geom_rect(data=dumbell_data, aes(xmin=0.55, xmax=0.6, ymin=-Inf, ymax=Inf), fill="lightgrey") + 
+  geom_text(data=dumbell_data, aes(label=diff, y=label, x=0.575), fontface="bold", size=3, family="Calibri")
 
 
 ```
@@ -2204,5 +2224,335 @@ ggplot(data, aes(x = dataset, y = accuracy, fill = model)) +
 
 ```
 
+```{r visualize LOO and colour by Dx, sex, age etc, fig.width=4,fig.height=3}
+
+hcpep_LOO <- fread("../../output/accuracy/MM/hcpep_LOO_obs_pred_cogPC.txt")
+hcp_covars <- fread("../../data/HCPEP/behaviour/covars_age_sex_fd.txt")
+hcp_Dx <-  fread("../../data/HCPEP/behaviour/covars_all.txt")
+hcp_Dx$Dx[is.na(hcp_Dx$Dx)] <- "HC"
+hcpep_LOO <- data.frame(hcpep_LOO, as.factor(hcp_covars$sex), hcp_covars$interview_age/12, as.factor(hcp_Dx$Dx))
+colnames(hcpep_LOO) <- c("Observered", "Predicted", "Sex", "Age", "Diagnosis")
+hcpep_LOO$Age_group <- 1
+hcpep_LOO$Age_group[hcpep_LOO$Age<mean(hcpep_LOO$Age)] <- 0
+
+tcp_LOO <- fread("../../output/accuracy/MM/tcp_LOO_obs_pred_cogPC.txt")
+tcp_covars <- fread("../../data/TCP/behaviour/covars_age_sex_fd.txt")
+tcp_Dx <- fread("../../data/TCP/behaviour/covars_all.txt")
+tcp_LOO <- data.frame(tcp_LOO, as.factor(tcp_covars$Gender), tcp_covars$Age, as.factor(tcp_Dx$Primary_Dx_clean))
+colnames(tcp_LOO) <- c("Observered", "Predicted", "Sex", "Age", "Diagnosis")
+tcp_LOO$Age_group <- 1
+tcp_LOO$Age_group[tcp_LOO$Age<mean(tcp_LOO$Age)] <- 0
 
 
+cnp_LOO <- fread("../../output/accuracy/MM/cnp_LOO_obs_pred_cogPC.txt")
+cnp_LOO <- cnp_LOO*-1 
+cnp_covars <- fread("../../data/CNP/behaviour/covars_age_sex_fd.txt")
+cnp_Dx <- fread("../../data/CNP/behaviour/covars_all.txt")
+cnp_LOO <- data.frame(cnp_LOO, as.factor(cnp_covars$gender), cnp_covars$age, as.factor(cnp_Dx$diagnosis))
+colnames(cnp_LOO) <- c("Observered", "Predicted", "Sex", "Age", "Diagnosis")
+cnp_LOO$Age_group <- 1
+cnp_LOO$Age_group[cnp_LOO$Age<mean(cnp_LOO$Age)] <- 0
+
+
+
+
+#match. Dx names 
+replacements <- list(
+  "Schizoaffective" = "SZAD",
+  "Bipolar Disorder" = "BD",
+  "BIPOLAR" = "BD",
+  "BD " = "BD",
+  "Control" = "HC",
+  "CONTROL" = "HC",
+  "Major Depressive Disorder" = "MDD",
+  "Anxiety" = "Anx",
+  "Schizophrenia" = "SZ",
+  "SCHZ" = "SZ"
+)
+
+replace_terms <- function(text, replacements) {
+  for (key in names(replacements)) {
+    text <- gsub(key, replacements[[key]], text)
+  }
+  text
+}
+tcp_LOO$Diagnosis <- as.factor(replace_terms(tcp_LOO$Diagnosis, replacements))
+cnp_LOO$Diagnosis <- as.factor(replace_terms(cnp_LOO$Diagnosis, replacements))
+hcpep_LOO$Diagnosis <- as.factor(replace_terms(hcpep_LOO$Diagnosis, replacements))
+
+tcp_LOO$Diagnosis <- factor(tcp_LOO$Diagnosis, levels = c("Anx", "BD",  "ED", "HC", 'MDD', "PTSD", "SUD", "SZ", "SZAD", "ADHD"))
+
+cnp_LOO$Diagnosis <- factor(cnp_LOO$Diagnosis, levels = c("Anx", "BD",  "ED", "HC", 'MDD', "PTSD", "SUD", "SZ", "SZAD", "ADHD"))
+
+hcpep_LOO$Diagnosis <- factor(hcpep_LOO$Diagnosis, levels = c("Anx", "BD",  "ED", "HC", 'MDD', "PTSD", "SUD", "SZ", "SZAD", "ADHD"))
+
+# Make plot 
+lab.size = 8
+title.size = 12
+line.thickness = 1
+
+theme_custom <- theme( 
+                      axis.text.y      = element_text(size=lab.size, colour = "black"),
+                      axis.title.y     = element_text(size=title.size,colour = "black"),
+                      axis.text.x      = element_text(size=lab.size,colour = "black"),
+                      axis.title.x     = element_text(size=title.size,colour = "black"),
+                      axis.line        = element_line(colour = "black", size = line.thickness),
+                      panel.grid.major = element_blank(),
+                      panel.grid.minor = element_blank(),
+                      panel.background = element_blank(),
+                     legend.key=element_rect(fill="white"))
+
+p1 <- ggplot(hcpep_LOO, aes(x = Observered, y = Predicted)) +
+           geom_point(colour="grey", size=3, alpha = 0.5) + 
+           stat_smooth(geom = "line", lineend = "round", color =  "black", method="lm", size=1) +  
+           theme_custom + ggpubr::stat_cor(aes(label = ..r.label..), label.x.npc = "left", label.y.npc = "bottom") +
+  ggtitle("HCP-EP") + theme(plot.title = element_text(hjust = 0.5))
+
+p2 <- ggplot(tcp_LOO, aes(x = Observered, y = Predicted)) +
+           geom_point(colour="grey", size=3, alpha = 0.5) + 
+           stat_smooth(geom = "line", lineend = "round", color =  "black", method="lm", size=1) +  
+           theme_custom + ggpubr::stat_cor(aes(label = ..r.label..), label.x.npc = "left", label.y.npc = "bottom")+
+  ggtitle("TCP") + theme(plot.title = element_text(hjust = 0.5))
+
+
+p3 <- ggplot(cnp_LOO, aes(x = Observered, y = Predicted)) +
+           geom_point(colour="grey", size=3, alpha = 0.5) + 
+           stat_smooth(geom = "line", lineend = "round", color =  "black", method="lm", size=1) +  
+           theme_custom + ggpubr::stat_cor(aes(label = ..r.label..), label.x.npc = "left", label.y.npc = "bottom") +
+  ggtitle("CNP") + theme(plot.title = element_text(hjust = 0.5))
+
+p1 | p2 | p3
+
+
+
+
+library(cowplot)
+p1_sex <- ggplot(hcpep_LOO, aes(x = Observered, y = Predicted)) +
+           geom_point(aes(fill=Sex), colour="black",pch=21, size=3, alpha = 0.5) + 
+           stat_smooth(geom = "line", lineend = "round", color =  "black", method="lm", size=1) +  
+      #stat_smooth(aes(group=Sex, colour =  Sex), geom = "line", lineend = "round",  method="lm", size=1) + 
+           theme_custom + ggtitle("Sex")
+
+p2_sex <- ggplot(tcp_LOO, aes(x = Observered, y = Predicted)) +
+           geom_point(aes(fill=Sex), colour="black",pch=21, size=3, alpha = 0.5) + 
+           stat_smooth(geom = "line", lineend = "round", color =  "black", method="lm", size=1) +  
+     # stat_smooth(aes(group=Sex, colour =  Sex), geom = "line", lineend = "round",  method="lm", size=1) + 
+           theme_custom 
+p3_sex <- ggplot(cnp_LOO, aes(x = Observered, y = Predicted)) +
+           geom_point(aes(fill=Sex), colour="black",pch=21, size=3, alpha = 0.5) + 
+           stat_smooth(geom = "line", lineend = "round", color =  "black", method="lm", size=1) +  
+      #stat_smooth(aes(group=Sex, colour =  Sex), geom = "line", lineend = "round",  method="lm", size=1) + 
+           theme_custom 
+
+combined_plot <- p1_sex + p2_sex + p3_sex +
+  plot_layout(nrow = 1) +
+  plot_layout(guides = "collect")
+
+#coloured by Dx
+
+# Define the factor levels and their corresponding colors
+factor_levels <- c("BD", "HC", "MDD", "SZ", "SZAD", "Anx", "ED", "SUD", "ADHD")
+factor_colors <- c("#1F77B4", "#FF7F0E", "#2CA02C", "#9467BD", "#FFC20A", "#E377C2", "#8C564B", "#D62728", "#7F7F7F")
+
+# Create a named vector with factor levels as names and colors as values
+custom_colors <- setNames(factor_colors, factor_levels)
+
+
+p1_dx <- ggplot(hcpep_LOO, aes(x = Observered, y = Predicted)) +
+           geom_point(aes(fill=Diagnosis), colour="black",pch=21, size=3, alpha = 0.5) + 
+           stat_smooth(geom = "line", lineend = "round", color =  "black", method="lm", size=1) +  scale_fill_manual(values = custom_colors, drop=FALSE) +
+      #stat_smooth(aes(group=Diagnosis, colour =  Diagnosis), geom = "line", lineend = "round",  method="lm", size=1) + 
+           theme_custom  + ggtitle("Diagnosis")
+
+p2_dx <- ggplot(tcp_LOO, aes(x = Observered, y = Predicted)) +
+           geom_point(aes(fill=Diagnosis), colour="black",pch=21, size=3, alpha = 0.5) + 
+           stat_smooth(geom = "line", lineend = "round", color =  "black", method="lm", size=1) +    scale_fill_manual(values = custom_colors, drop=FALSE) +
+      #stat_smooth(aes(group=Diagnosis, colour =  Diagnosis), geom = "line", lineend = "round",  method="lm", size=1) + 
+           theme_custom 
+
+p3_dx <- ggplot(cnp_LOO, aes(x = Observered, y = Predicted)) +
+           geom_point(aes(fill=Diagnosis), colour="black",pch=21, size=3, alpha = 0.5) + 
+           stat_smooth(geom = "line", lineend = "round", color =  "black", method="lm", size=1) +  scale_fill_manual(values = custom_colors, drop=FALSE) +  
+      #stat_smooth(aes(group=Diagnosis, colour =  Diagnosis), geom = "line", lineend = "round",  method="lm", size=1) + 
+           theme_custom 
+
+combined_plot <- p1_dx + p2_dx + p3_dx +
+  plot_layout(nrow = 1) +
+  plot_layout(guides = "collect") 
+
+
+
+#colored by Age
+p1_age <- ggplot(hcpep_LOO, aes(x = Observered, y = Predicted)) +
+           geom_point(aes(fill=Age), colour="black",pch=21, size=3, alpha = 0.7) + 
+           stat_smooth(geom = "line", lineend = "round", color =  "black", method="lm", size=1) +  
+      #stat_smooth(aes(group=Age_group, colour =  Age_group), geom = "line", lineend = "round",  method="lm", size=1) + 
+           theme_custom + viridis::scale_fill_viridis(option = "C",limits = c(17, 65))   + ggtitle("Age")
+
+p2_age <- ggplot(tcp_LOO, aes(x = Observered, y = Predicted)) +
+           geom_point(aes(fill=Age), colour="black",pch=21, size=3, alpha = 0.7) + 
+           stat_smooth(geom = "line", lineend = "round", color =  "black", method="lm", size=1) +  
+      #stat_smooth(aes(group=Age_group, colour =  Age_group), geom = "line", lineend = "round",  method="lm", size=1) + 
+           theme_custom + viridis::scale_fill_viridis(option = "C",limits = c(17, 65))
+p3_age <- ggplot(cnp_LOO, aes(x = Observered, y = Predicted)) +
+           geom_point(aes(fill=Age), colour="black",pch=21, size=3, alpha = 0.7) + 
+           stat_smooth(geom = "line", lineend = "round", color =  "black", method="lm") +  
+      #stat_smooth(aes(group=Age_group, colour =  Age_group), geom = "line", lineend = "round",  method="lm", size=1) + 
+           theme_custom + viridis::scale_fill_viridis(option = "C",limits = c(17, 65))
+
+combined_plot <- p1_age + p2_age + p3_age +
+  plot_layout(nrow = 1) +
+  plot_layout(guides = "collect")
+
+
+
+#plot and add shared X and Y label
+plot <- (p1 + p2 + p3)/(p1_dx + p2_dx + p3_dx)/(p1_sex + p2_sex + p3_sex)/(p1_age + p2_age + p3_age) + 
+    plot_layout(nrow = 4) +
+  plot_layout(guides = "collect") & 
+  xlab(NULL) & ylab(NULL) & theme(plot.margin = margin(10, 10, 10, 10))
+
+# Add a combined x-axis title at the bottom
+combined_plot <- plot +
+  plot_annotation("Combined X-Axis Title",
+    theme = theme(plot.margin = margin(t = 10, unit = "pt"))
+  )
+
+
+```
+
+```{r compare RSE between subgroups}
+## HCP DX
+M0 <- lm(Observered ~ Predicted, hcpep_LOO)
+M1 <- lm(Observered ~ Predicted, data = subset(hcpep_LOO, Diagnosis == "BD"))
+M2 <- lm(Observered ~ Predicted, data = subset(hcpep_LOO, Diagnosis == "HC"))
+M3 <- lm(Observered ~ Predicted, data = subset(hcpep_LOO, Diagnosis == "SZ"))
+M4 <- lm(Observered ~ Predicted, data = subset(hcpep_LOO, Diagnosis == "SZAD"))
+
+# Compute the RSE for each subgroup
+RSE_0 <- resid(M0)^2
+RSE_1 <- resid(M1)^2
+RSE_2 <- resid(M2)^2
+RSE_3 <- resid(M3)^2
+RSE_4 <- resid(M4)^2
+RSE <- c(RSE_1, RSE_2, RSE_3,RSE_4)
+
+subgroup <- factor(rep(c("BD", "HC", "SZ","SZAD"), c(length(RSE_1), length(RSE_2), length(RSE_3), length(RSE_4))))
+anova_model <- kruskal.test(RSE ~ subgroup)
+anova_model
+
+## HCP Sex
+M1 <- lm(Observered ~ Predicted, data = subset(hcpep_LOO, Sex == "M"))
+M2 <- lm(Observered ~ Predicted, data = subset(hcpep_LOO, Sex == "F"))
+
+# Compute the RSE for each subgroup
+RSE_1 <- resid(M1)^2
+RSE_2 <- resid(M2)^2
+
+RSE <- c(RSE_1, RSE_2)
+subgroup <- factor(rep(c("M", "F"), c(length(RSE_1), length(RSE_2))))
+anova_model <- kruskal.test(RSE ~ subgroup)
+
+
+##TCP Dx
+M0 <- lm(Observered ~ Predicted, tcp_LOO)
+M1 <- lm(Observered ~ Predicted, data = subset(tcp_LOO, Diagnosis == "Bipolar Disorder "))
+M2 <- lm(Observered ~ Predicted, data = subset(tcp_LOO, Diagnosis == "Control"))
+M3 <- lm(Observered ~ Predicted, data = subset(tcp_LOO, Diagnosis == "Anxiety" | Diagnosis == "PTSD"))
+M4 <- lm(Observered ~ Predicted, data = subset(tcp_LOO, Diagnosis == "Schizoaffective" | Diagnosis == "Schizophrenia"))
+
+# Compute the RSE for each subgroup
+RSE_0 <- resid(M0)^2
+RSE_1 <- resid(M1)^2
+RSE_2 <- resid(M2)^2
+RSE_3 <- resid(M3)^2
+RSE_4 <- resid(M4)^2
+RSE <- c(RSE_1, RSE_2, RSE_3,RSE_4)
+subgroup <- factor(rep(c("BD", "HC", "Anx","SZ"), c(length(RSE_1), length(RSE_2), length(RSE_3), length(RSE_4))))
+anova_model <- kruskal.test(RSE ~ subgroup)
+anova_model
+
+## tcp Sex
+M1 <- lm(Observered ~ Predicted, data = subset(tcp_LOO, Sex == "M"))
+M2 <- lm(Observered ~ Predicted, data = subset(tcp_LOO, Sex == "F"))
+
+# Compute the RSE for each subgroup
+RSE_1 <- resid(M1)^2
+RSE_2 <- resid(M2)^2
+
+RSE <- c(RSE_1, RSE_2)
+subgroup <- factor(rep(c("M", "F"), c(length(RSE_1), length(RSE_2))))
+anova_model <- kruskal.test(RSE ~ subgroup)
+anova_model
+wilcox.test(RSE ~ subgroup)
+
+
+#CNP
+##TCP Dx
+M0 <- lm(Observered ~ Predicted, cnp_LOO)
+M1 <- lm(Observered ~ Predicted, data = subset(cnp_LOO, Diagnosis == "ADHD"))
+M2 <- lm(Observered ~ Predicted, data = subset(cnp_LOO, Diagnosis == "BIPOLAR"))
+M3 <- lm(Observered ~ Predicted, data = subset(cnp_LOO, Diagnosis == "CONTROL"))
+M4 <- lm(Observered ~ Predicted, data = subset(cnp_LOO, Diagnosis == "SCHZ"))
+
+# Compute the RSE for each subgroup
+RSE_0 <- resid(M0)^2
+RSE_1 <- resid(M1)^2
+RSE_2 <- resid(M2)^2
+RSE_3 <- resid(M3)^2
+RSE_4 <- resid(M4)^2
+RSE <- c(RSE_1, RSE_2, RSE_3,RSE_4)
+subgroup <- factor(rep(c("ADHD", "BP", "Cont","SCHZ"), c(length(RSE_1), length(RSE_2), length(RSE_3), length(RSE_4))))
+
+anova_model <- kruskal.test(RSE ~ subgroup)
+
+#post-hoc for sig. differences
+library(dunn.test)
+dunn.test(RSE, subgroup, method = "bonferroni")
+
+
+## tcp Sex
+M1 <- lm(Observered ~ Predicted, data = subset(cnp_LOO, Sex == "M"))
+M2 <- lm(Observered ~ Predicted, data = subset(cnp_LOO, Sex == "F"))
+
+# Compute the RSE for each subgroup
+RSE_1 <- resid(M1)^2
+RSE_2 <- resid(M2)^2
+
+RSE <- c(RSE_1, RSE_2)
+subgroup <- factor(rep(c("M", "F"), c(length(RSE_1), length(RSE_2))))
+anova_model <- kruskal.test(RSE ~ subgroup)
+anova_model
+
+
+
+```
+
+```{r genralisibility matrix for MM - no Scz in CNP}
+genmat <- as.matrix(abs(read.table(here('./output/generalizability/mm_generalizability_matrix_noSchz.txt'))))
+
+diag(genmat) <- c(.51, .39, .34) #in sample accuracy for diagnoal 
+
+row.names(genmat) <- colnames(genmat) <- c("HCPEP", "TCP", "CNP (NoSchz)")
+
+#setEPS()
+#postscript("/Users/sidchopra/Dropbox/Sid/python_files/metamatching/output/Results/eps_files/1c_generalizability.eps", height = 8, width = 8)
+#{
+#par(xpd=TRUE)
+corrplot(genmat, method = "circle",  
+         col.lim = c(0,0.6),
+         col = COL1('OrRd', 100), 
+         addCoef.col = 'black',
+         tl.col="black", tl.cex=2.5, 
+         tl.srt=45, 
+         is.corr=F, 
+         cl.length=4, 
+         cl.ratio=0.4,number.cex = 2,
+         addgrid.col = "black", cl.cex = 2, na.label = " ")
+#  mtext("Train", side=3, padj = -2, cex = 3)
+#  mtext("Test", side=2, padj = -2,cex = 3)
+#}
+#dev.off()
+
+
+```
