@@ -1419,8 +1419,8 @@ diag(genmat_krr) <- round(c(mean(as.numeric(unlist(data$Accuracy[data$Dataset=="
 row.names(genmat_mm) <- colnames(genmat_mm) <- c("HCPEP", "TCP", "CNP")
 row.names(genmat_krr) <- colnames(genmat_krr) <- c("HCPEP", "TCP", "CNP")
 
-llim <- min(genmat,genmat_krr)
-ulim <- max(genmat,genmat_krr)
+llim <- min(genmat_mm,genmat_krr)
+ulim <- max(genmat_mm,genmat_krr)
 
 #setEPS()
 #postscript("/Users/sidchopra/Dropbox/Sid/python_files/metamatching/output/Results/eps_files/Sup_generalizability_MM_COD.eps", height = 8, width = 8)
