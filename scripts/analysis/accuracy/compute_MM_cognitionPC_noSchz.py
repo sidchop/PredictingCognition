@@ -20,7 +20,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from scipy.stats import pearsonr, zscore
 from CBIG_model_pytorch import stacking, covariance_rowwise, multi_task_dataset
-from sklearn.metrics import explained_variance_score, r2_score, mean_squared_error
+from sklearn.metrics import explained_variance_score, r2_score
 from torch.utils.data import DataLoader
 
 import torch
@@ -52,7 +52,7 @@ fc_data_hcpep = np.loadtxt(os.path.join(path_repo, 'data/HCPEP/brain/FC_n163_GSR
 fc_data_tcp = np.loadtxt(os.path.join(path_repo, 'data/TCP/brain/FC_mean_matched_n101_GSR.txt'))
 
 #CNP (aka UCLA)
-fc_data_cnp = np.loadtxt(os.path.join(path_repo, 'data/CNP/brain/FC_n256_matched_GSR.txt'))
+fc_data_cnp = np.loadtxt(os.path.join(path_repo, 'data/CNP/brain/FC_n256_matched_GSR_noSchz.txt'))
 
 
 
@@ -63,7 +63,7 @@ cogpc_hcpep = pd.read_csv(os.path.join(path_repo, 'data/HCPEP/behaviour/pheno_co
 
 cogpc_tcp = pd.read_csv(os.path.join(path_repo, 'data/TCP/behaviour/pheno_cog_PC_n101.txt'), sep=" ")
 
-cogpc_cnp = pd.read_csv(os.path.join(path_repo, 'data/CNP/behaviour/pheno_cog_PC_n256.txt'), sep=" ")
+cogpc_cnp = pd.read_csv(os.path.join(path_repo, 'data/CNP/behaviour/pheno_cog_PC_n256_noSchz.txt'), sep=" ")
 
 
 # In[3]:
@@ -108,13 +108,12 @@ cogpc_hcpep = cogpc_hcpep.to_numpy()
 cogpc_tcp = cogpc_tcp.to_numpy()
 cogpc_cnp = cogpc_cnp.to_numpy()
 
-#z-score and store cog and fc and covars data into lists 
+#store cog and fc and covars data into lists 
 fc_data_hcpep = zscore(fc_data_hcpep, axis=1)
 fc_data_tcp = zscore(fc_data_tcp, axis=1)
 fc_data_cnp= zscore(fc_data_cnp, axis=1)
-
-fc_list = [fc_data_hcpep, fc_data_tcp, fc_data_cnp] 
-cog_list = [cogpc_hcpep, cogpc_tcp, cogpc_cnp]
+fc_list = [fc_data_hcpep , fc_data_tcp , fc_data_cnp]
+cog_list = [cogpc_hcpep, cogpc_tcp , cogpc_cnp]
 
 names = ['hcpep', 'tcp', 'cnp']
 
@@ -140,7 +139,6 @@ pred_phenotypes = np.zeros((y_input.shape))
 corr = np.zeros((y_input.shape[1],splits))
 best_param = np.zeros((y_input.shape[1],splits))
 r2 = np.zeros((y_input.shape[1],splits))
-MSE = np.zeros((y_input.shape[1],splits))
 var_exp = np.zeros((y_input.shape[1],splits))
 cov = np.zeros((x_input.shape[1], y_input.shape[1]))
 cov2 = np.zeros((67, y_input.shape[1])) #DNN MM features (67)
@@ -208,14 +206,11 @@ for k in range(splits):
         corr[i,k] = pearsonr(y_test[:, i], y_test_final[:, i])[0]
         r2[i,k] = r2_score(y_test[:, i], y_test_final[:, i])
         var_exp[i,k] = explained_variance_score(y_test[:, i], y_test_final[:, i])
-        MSE[i,k] = mean_squared_error(y_test[:, i], y_test_final[:, i])
-     
        
     print(ind, k)
     
 kf_pearson_results = corr
 kf_COD_results = r2
-kf_MSE_results = MSE
 kf_VarExp_results = var_exp
 kf_Haufe_results = cov/splits
 kf_Haufe_results2 = cov2/splits
@@ -225,7 +220,6 @@ varnames = ["PC1"]
 
 kf_pearson_results = pd.concat([pd.DataFrame(varnames), pd.DataFrame(kf_pearson_results)], axis=1)
 kf_COD_results = pd.concat([pd.DataFrame(varnames), pd.DataFrame(kf_COD_results)], axis=1)
-kf_MSE_results = pd.concat([pd.DataFrame(varnames), pd.DataFrame(kf_MSE_results)], axis=1)
 kf_VarExp_results = pd.concat([pd.DataFrame(varnames), pd.DataFrame(kf_VarExp_results)], axis=1)
 kf_Haufe_results = pd.DataFrame(kf_Haufe_results, columns=varnames)
 kf_Haufe_results2 = pd.DataFrame(kf_Haufe_results2, columns=varnames)
@@ -238,35 +232,30 @@ if regress_covars == True:
     typename='_ASFd' #(AgeSexFramewisedispacement)
 
     
-kf_pearson_results.to_csv(str(output_path  + names[ind] + '_' + 'pearsonr_cogPC' + typename  + '.txt'), 
+kf_pearson_results.to_csv(str(output_path  + names[ind] + '_' + 'pearsonr_cogPC_noSchz' + typename  + '.txt'), 
                            sep=' ',
                            index=False,
                            header=False)
 
-kf_COD_results.to_csv(str(output_path + names[ind] + '_' + 'COD_cogPC' + typename  + '.txt'), 
+kf_COD_results.to_csv(str(output_path + names[ind] + '_' + 'COD_cogPC_noSchz' + typename  + '.txt'), 
                            sep=' ',
                            index=False,
                            header=False)
 
-kf_MSE_results.to_csv(str(output_path + names[ind] + '_' + 'MSE_cogPC' + typename  + '.txt'), 
+kf_VarExp_results.to_csv(str(output_path  + names[ind] + '_' + 'VarExp_cogPC_noSchz' + typename  + '.txt'), 
                            sep=' ',
                            index=False,
                            header=False)
 
-kf_VarExp_results.to_csv(str(output_path  + names[ind] + '_' + 'VarExp_cogPC' + typename  + '.txt'), 
+kf_Haufe_results.to_csv(str(output_path  + names[ind] + '_' + 'haufe_cogPC_noSchz' + typename  + '.txt'), 
                            sep=' ',
                            index=False,
                            header=False)
-
-kf_Haufe_results.to_csv(str(output_path  + names[ind] + '_' + 'haufe_cogPC' + typename  + '.txt'), 
+kf_Haufe_results2.to_csv(str(output_path  + names[ind] + '_' + 'haufe67pheno_cogPC_noSchz' + typename  + '.txt'), 
                            sep=' ',
                            index=False,
                            header=False)
-kf_Haufe_results2.to_csv(str(output_path  + names[ind] + '_' + 'haufe67pheno_cogPC' + typename  + '.txt'), 
-                           sep=' ',
-                           index=False,
-                           header=False)
-kf_best_param_results.to_csv(str(output_path  + names[ind] + '_' + 'best_param_cogPC' + typename + '.txt'), 
+kf_best_param_results.to_csv(str(output_path  + names[ind] + '_' + 'best_param_cogPC_noSchz' + typename + '.txt'), 
                            sep=' ',
                            index=False,
                            header=False)
