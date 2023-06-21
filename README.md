@@ -16,23 +16,24 @@ medRxiv.
 
 ## Background
 
-A primary aim of precision psychiatry is the establishment of predictive
-models linking individual differences in brain functioning with clinical
-symptoms. In particular, cognitive impairments are transdiagnostic,
-treatment resistant, and contribute to poor clinical outcomes. Recent
-work suggests thousands of participants may be necessary for the
-accurate and reliable prediction of cognition, calling into question the
-utility of most patient collection efforts. Here, using a
-transfer-learning framework, we train a model on functional imaging data
-from the UK Biobank (n=36,848) to predict cognitive functioning in three
-transdiagnostic patient samples (n=101-224). The model generalizes
-across datasets, and brain features driving predictions are consistent
-between populations, with decreased functional connectivity within
-transmodal cortex and increased connectivity between unimodal and
-transmodal regions reflecting a transdiagnostic predictor of cognition.
-This work establishes that predictive models derived in large
-population-level datasets can be exploited to boost the prediction of
-cognitive function across clinical collection efforts.
+A primary aim of computational psychiatry is the establishment of
+predictive models linking individual differences in brain functioning
+with clinical symptoms. In particular, cognitive impairments are
+transdiagnostic, treatment resistant, and contribute to poor clinical
+outcomes. Recent work suggests thousands of participants may be
+necessary for the accurate and reliable prediction of cognition, calling
+into question the utility of most patient collection efforts. Here,
+using a transfer-learning framework, we train a model on functional
+imaging data from the UK Biobank (n=36,848) to predict cognitive
+functioning in three transdiagnostic patient samples (n=101-224). The
+model generalizes across datasets, and network-level brain features
+driving predictions are consistent between populations, with decreased
+functional connectivity within transmodal cortex and increased
+connectivity between unimodal and transmodal regions reflecting a
+transdiagnostic predictor of cognition. This work establishes that
+predictive models derived in large population-level datasets can be
+exploited to boost the prediction of cognitive function across clinical
+collection efforts.
 
 ## Code and Data release
 
