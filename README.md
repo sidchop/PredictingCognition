@@ -7,10 +7,10 @@ functioning across common psychiatric illness
 Chopra, S., Dhamala, E., Lawhead, C., Ricard, J., Orchard, E., An, L.,
 Chen, P., Wulan, N., Kumar, P., Rubenstein. A., Moses, J., Chen, L.,
 Levi, P., Aquino, K., Fornito, A., Harpaz-Rotem, I., Germine, L., Baker,
-J., Yeo, BT., Holmes, A. (2022) [Reliable and generalizable brain-based
+J., Yeo, BT., Holmes, A. (2024). [Reliable and generalizable brain-based
 predictions of cognitive functioning across common psychiatric
-illness](https://www.medrxiv.org/content/10.1101/2022.12.08.22283232v1).
-medRxiv.
+illness](https://www.science.org/doi/10.1126/sciadv.adk3074).
+Science Advances.
 
 ------------------------------------------------------------------------
 
@@ -77,7 +77,7 @@ The `scripts` folder contains the two folders: `analysis` and
 
   - Human Connectome Project - Early Psychosis (HCP-EP; n=145)
 
-  - Transdiagnostic Connectomes Project (TCP; n=101)
+  - Transdiagnostic Connectomes Project (TCP; n=101) - data available on [OpenNeuro](https://openneuro.org/datasets/ds003944)
 
   - Consortium for Neuropsychiatric Phenomics (CNP; n=224)
 
